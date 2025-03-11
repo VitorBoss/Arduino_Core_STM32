@@ -85,6 +85,9 @@ extern "C" {
 #else
   #error "Unknown SD_INSTANCE"
 #endif
+#ifndef SD_HW_FLOW_CTRL
+  #define SD_HW_FLOW_CTRL          SD_HW_FLOW_CTRL_DISABLE
+#endif
 
 // Defines a default timeout delay in milliseconds for the SDIO transfer
 #ifndef SD_TRANSFER_TIMEOUT
@@ -139,14 +142,14 @@ struct sd_s {
 /* Exported functions ------------------------------------------------------- */
 void sd_init(sd_t *obj, uint32_t speed, SDIOMode mode, uint8_t dmaEnabled);
 void sd_deinit(sd_t *obj);
-sd_status_e sd_read(sd_t *obj, const uint8_t *rx_buffer, uint32_t address, uint16_t len);
-sd_status_e sd_write(sd_t *obj, const uint8_t *tx_buffer, uint32_t address, uint16_t len);
+sd_status_e sd_read(sd_t *obj, const uint8_t *rx_buffer, uint32_t address, uint16_t blocks);
+sd_status_e sd_write(sd_t *obj, const uint8_t *tx_buffer, uint32_t address, uint16_t blocks);
 sd_status_e sd_erase(sd_t *obj, uint32_t start_address, uint32_t end_address);
 uint32_t sd_getClkFreq(sd_t *obj);
 bool sd_setDetectionInput(sd_t *obj, PinName p, uint32_t level);
 bool sd_setDetectionInterrupt(sd_t *obj, void (*callback)(void));
-bool sd_IsDetected(sd_t *obj);
-bool sd_IsBusy(sd_t *obj);
+bool sd_isDetected(sd_t *obj);
+bool sd_isBusy(sd_t *obj);
 
 #ifdef __cplusplus
 }

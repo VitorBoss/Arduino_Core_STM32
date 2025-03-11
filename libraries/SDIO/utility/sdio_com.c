@@ -15,6 +15,7 @@
 #include "PinAF_STM32F1.h"
 #include "pinconfig.h"
 #include "stm32yyxx_ll_sdmmc.h"
+#include "sdio_com.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,7 +93,7 @@ extern "C" {
    * @param  hsd: SD handle
    * @param  Params : pointer on additional configuration parameters, can be NULL.
    */
- __weak void SDIO_MspDeInit(SD_HandleTypeDef *hsd, void *Params)
+ __weak void SDIO_MspDeInit(sd_t * obj, void *Params)
  {
    UNUSED(Params);
    /* DeInit GPIO pins can be done in the application
@@ -109,7 +110,7 @@ extern "C" {
    HAL_GPIO_DeInit((GPIO_TypeDef *)STM_PORT(obj->pin_d2), STM_GPIO_PIN(obj->pin_d2));
    HAL_GPIO_DeInit((GPIO_TypeDef *)STM_PORT(obj->pin_d3), STM_GPIO_PIN(obj->pin_d3));
    HAL_GPIO_DeInit((GPIO_TypeDef *)STM_PORT(obj->pin_cmd), STM_GPIO_PIN(obj->pin_cmd));
-   HAL_GPIO_DeInit((GPIO_TypeDef *)STM_PORT(obj->pin_sck), STM_GPIO_PIN(obj->pin_ck));
+   HAL_GPIO_DeInit((GPIO_TypeDef *)STM_PORT(obj->pin_sck), STM_GPIO_PIN(obj->pin_sck));
  #if defined(SDMMC1) || defined(SDMMC2)
  #if !defined(SDMMC_CKIN_NA)
    if (obj->pin_ckin != NC) {
@@ -147,7 +148,6 @@ extern "C" {
    }
  #endif
  #else
-   UNUSED(hsd);
    __HAL_RCC_SDIO_CLK_DISABLE();
  #endif
  }
@@ -171,14 +171,13 @@ extern "C" {
    LL_GPIO_SetPinPull(obj->SD_detect_gpio_port, obj->SD_detect_ll_gpio_pin, LL_GPIO_PULL_UP);
  }
  
- //**
-   * @brief  DeInitializes the SD Detect pin MSP.
-   * @param  hsd: SD handle
-   * @param  Params : pointer on additional configuration parameters, can be NULL.
-   */
+ /**
+  * @brief  DeInitializes the SD Detect pin MSP.
+  * @param  hsd: SD handle
+  * @param  Params : pointer on additional configuration parameters, can be NULL.
+  */
  __weak void SDIO_Detect_MspDeInit(sd_t * obj, void *Params)
  {
-   UNUSED(hsd);
    UNUSED(Params);
 
    /* GPIO configuration in analog to saves the consumption */
@@ -291,8 +290,9 @@ uint32_t sd_getClkFreq(sd_t *obj)
   * @param  msb : set to 1 in msb first
   * @retval None
   */
-void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
+void sd_init(sd_t *obj, uint32_t speed, SDIOMode mode, uint8_t msb)
 {
+  int8_t sd_state;
   if (obj == NULL) {
     return;
   }
@@ -412,17 +412,17 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
 #endif
 #endif /* SDMMC1 || SDMMC2 */
     /* Are all pins connected to the same SDx instance? */
-    if (obj->sd == NP) {
+    if (&obj->handle == NP) {
       core_debug("ERROR: SD pins mismatch\n");
       return;
     }
   }
 
   /* Fill default value */
-  handle->Instance               = obj->sd;
+  obj->handle.Instance               = obj->sd;
   //handle->Init.Mode              = SD_MODE_MASTER;
 
-  sd_freq = sd_getClkFreqInst(obj->sd);
+  sd_freq = sd_getClkFreqInst(&obj->handle);
   handle->Init.ClockDiv = (sd_freq / speed) - 1;
 
   /* Check if SD is not yet initialized */
@@ -445,11 +445,11 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
     handle->Init.HardwareFlowControl = SD_HW_FLOW_CTRL;
     handle->Init.ClockDiv            = SD_CLK_DIV;
 
-    if ((sd_state == SD_OK) && (SD_detect_ll_gpio_pin != LL_GPIO_PIN_ALL)) {
+    if ((sd_state == SD_OK) && (obj->SD_detect_ll_gpio_pin != LL_GPIO_PIN_ALL)) {
       /* Msp SD Detect pin initialization */
       SDIO_Detect_MspInit(obj, NULL);
-      if (SDIO_IsDetected() != SD_PRESENT) { /* Check if SD card is present */
-        sd_state = SD_ERROR_SD_NOT_PRESENT;
+      if (sd_IsDetected(obj)) { /* Check if SD card is present */
+        sd_state = SD_ERROR;
       }
     }
     if (sd_state == SD_OK) {
@@ -457,12 +457,13 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
       SDIO_MspInit(obj, NULL);
 
       /* HAL SD initialization */
-      if (HAL_SD_Init(obj->sd) != HAL_OK) {
+      if (HAL_SD_Init(&obj->handle) != HAL_OK) {
         sd_state = SD_ERROR;
       }
 
       /* Enable DMA if user requested */
-      if ((sd_state == SD_OK) && useDma) {
+      if ((sd_state == SD_OK) && obj->useDMA) {
+        DMA_HandleTypeDef uSdDma = { 0 };
         /* Required power up waiting time before starting the SD initialization  sequence */
         HAL_Delay(2);
         __DMA2_CLK_ENABLE();
@@ -484,10 +485,10 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
         HAL_DMA_DeInit(&uSdDma);
 
         HAL_DMA_Init(&uSdDma);
-        __HAL_LINKDMA(obj->sd, hdmatx, uSdDma);
+        __HAL_LINKDMA(&obj->handle, hdmatx, uSdDma);
 
         uSdDma.Init.Direction = DMA_PERIPH_TO_MEMORY;
-        __HAL_LINKDMA(obj->sd, hdmarx, uSdDma);
+        __HAL_LINKDMA(&obj->handle, hdmarx, uSdDma);
       }
 
       /* Configure SD Bus width */
@@ -499,7 +500,7 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
           mode = SDIO_BUS_WIDE_8B;
         }
 #endif
-        if (HAL_SD_ConfigWideBusOperation(obj->sd, mode) != HAL_OK) {
+        if (HAL_SD_ConfigWideBusOperation(&obj->handle, mode) != HAL_OK) {
           sd_state = SD_ERROR;
         }
       }
@@ -507,7 +508,7 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
   }
 #if defined SDIO_BASE
   // Enable SD clock
-  if (handle->Instance == SDIO) {
+  if (obj->handle.Instance == SDIO) {
     __HAL_RCC_SDIO_CLK_ENABLE();
     __HAL_RCC_SDIO_FORCE_RESET();
     __HAL_RCC_SDIO_RELEASE_RESET();
@@ -515,7 +516,7 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
 #endif
 
 #if defined SDMMC_BASE
-  if (handle->Instance == SDMMC) {
+  if (obj->handle.Instance == SDMMC) {
     __HAL_RCC_SDMMC_CLK_ENABLE();
     __HAL_RCC_SDMMC_FORCE_RESET();
     __HAL_RCC_SDMMC_RELEASE_RESET();
@@ -523,7 +524,7 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
 #endif
 
 #if defined SDMMC1_BASE
-  if (handle->Instance == SDMMC1) {
+  if (obj->handle.Instance == SDMMC1) {
     __HAL_RCC_SDMMC1_CLK_ENABLE();
     __HAL_RCC_SDMMC1_FORCE_RESET();
     __HAL_RCC_SDMMC1_RELEASE_RESET();
@@ -531,7 +532,7 @@ void sd_init(sd_t *obj, uint32_t speed, SDMode mode, uint8_t msb)
 #endif
 
 #if defined SDMMC2_BASE
-  if (handle->Instance == SDMMC2) {
+  if (obj->handle.Instance == SDMMC2) {
     __HAL_RCC_SDMMC2_CLK_ENABLE();
     __HAL_RCC_SDMMC2_FORCE_RESET();
     __HAL_RCC_SDMMC2_RELEASE_RESET();
@@ -565,29 +566,29 @@ void sd_deinit(sd_t *obj)
 #endif
   {
     /* HAL SD deinitialization */
-    if (HAL_SD_DeInit(obj->sd) != HAL_OK) {
+    if (HAL_SD_DeInit(&obj->handle) != HAL_OK) {
       sd_state = SD_ERROR;
     }
 
     /* Msp SD deinitialization */
-    SDIO_MspDeInit(obj->sd, NULL);
+    SDIO_MspDeInit(&obj->handle, NULL);
 
-    if (SD_detect_ll_gpio_pin != LL_GPIO_PIN_ALL) {
-      SDIO_Detect_MspDeInit(obj->sd, NULL);
+    if (obj->SD_detect_ll_gpio_pin != LL_GPIO_PIN_ALL) {
+      SDIO_Detect_MspDeInit(&obj->handle, NULL);
     }
   }
 
   #if defined SDIO_BASE
   // Enable SD clock
-  if (handle->Instance == SDIO) {
+  if (obj->handle.Instance == SDIO) {
     __HAL_RCC_SDIO_FORCE_RESET();
     __HAL_RCC_SDIO_RELEASE_RESET();
-    __HAL_RCC_SDMMC2_CLK_DISABLE();
+    __HAL_RCC_SDIO_CLK_DISABLE();
   }
 #endif
 
 #if defined SDMMC_BASE
-  if (handle->Instance == SDMMC) {
+  if (obj->handle.Instance == SDMMC) {
     __HAL_RCC_SDMMC_FORCE_RESET();
     __HAL_RCC_SDMMC_RELEASE_RESET();
     __HAL_RCC_SDMMC2_CLK_DISABLE();
@@ -595,7 +596,7 @@ void sd_deinit(sd_t *obj)
 #endif
 
 #if defined SDMMC1_BASE
-  if (handle->Instance == SDMMC1) {
+  if (obj->handle.Instance == SDMMC1) {
     __HAL_RCC_SDMMC1_FORCE_RESET();
     __HAL_RCC_SDMMC1_RELEASE_RESET();
     __HAL_RCC_SDMMC2_CLK_DISABLE();
@@ -603,7 +604,7 @@ void sd_deinit(sd_t *obj)
 #endif
 
 #if defined SDMMC2_BASE
-  if (handle->Instance == SDMMC2) {
+  if (obj->handle.Instance == SDMMC2) {
     __HAL_RCC_SDMMC2_FORCE_RESET();
     __HAL_RCC_SDMMC2_RELEASE_RESET();
     __HAL_RCC_SDMMC2_CLK_DISABLE();
@@ -618,34 +619,29 @@ void sd_deinit(sd_t *obj)
   * @param  obj : pointer to sd_t structure
   * @param  rx_buffer : data to be received rx data
   * @param  address : data address in the card to be read
-  * @param  len : length in byte of the data to receive
+  * @param  blocks : number of blocks of the data to receive
   * @retval status of the receive operation (0) in case of error
   */
-sd_status_e sd_read(sd_t *obj, const uint8_t *rx_buffer, uint32_t address, uint16_t len)
+sd_status_e sd_read(sd_t *obj, const uint8_t *rx_buffer, uint32_t address, uint16_t blocks)
 {
   sd_status_e ret = SD_OK;
-  uint32_t size = len / 512;
   SD_TypeDef *_SD = obj->handle.Instance;
   uint8_t *buffer = (uint8_t *)rx_buffer;
 
-  if (len == 0) {
+  if (blocks == 0) {
     ret = SD_ERROR;
   } else {
-    if (size == 0) {
-        size = 1; //Read at least 1 block
-    }
     if (!obj->useDMA) {
-      if (HAL_SD_ReadBlocks(_SD, buffer, address, size, SD_TRANSFER_TIMEOUT) == HAL_OK) {
+      if (HAL_SD_ReadBlocks(_SD, buffer, address, blocks, SD_TRANSFER_TIMEOUT) == HAL_OK) {
         ret = SD_OK;
       } else {
         ret = SD_ERROR;
       }
     } else {
-      if (HAL_SD_ReadBlocks_DMA(_SD, buffer, address, size) == HAL_OK) {
-          ret = SD_OK;
-        } else {
-          ret = SD_ERROR;
-        }
+      if (HAL_SD_ReadBlocks_DMA(_SD, buffer, address, blocks) == HAL_OK) {
+        ret = SD_OK;
+      } else {
+        ret = SD_ERROR;
       }
     }
   }
@@ -658,34 +654,29 @@ sd_status_e sd_read(sd_t *obj, const uint8_t *rx_buffer, uint32_t address, uint1
   * @param  obj : pointer to sd_t structure
   * @param  tx_buffer : data to be sent tx data
   * @param  address : data address in the card to be read
-  * @param  len : length in byte of the data to send
+  * @param  blocks : number of blocks of the data to receive
   * @retval status of the send operation (0) in case of error
   */
-sd_status_e sd_write(sd_t *obj, const uint8_t *rx_buffer, uint32_t address, uint16_t len)
+sd_status_e sd_write(sd_t *obj, const uint8_t *rx_buffer, uint32_t address, uint16_t blocks)
 {
   sd_status_e ret = SD_OK;
-  uint32_t size = len / 512;
   SD_TypeDef *_SD = obj->handle.Instance;
   uint8_t *buffer = (uint8_t *)rx_buffer;
 
-  if (len == 0) {
+  if (blocks == 0) {
     ret = SD_ERROR;
   } else {
-    if (size == 0) {
-      size = 1; //Write at least 1 block
-    }
     if (!obj->useDMA) {
-      if (HAL_SD_WriteBlocks(_SD, buffer, address, size, SD_TRANSFER_TIMEOUT) == HAL_OK) {
+      if (HAL_SD_WriteBlocks(_SD, buffer, address, blocks, SD_TRANSFER_TIMEOUT) == HAL_OK) {
         ret = SD_OK;
       } else {
         ret = SD_ERROR;
       }
-      } else {
-      if (HAL_SD_WriteBlocks_DMA(_SD, buffer, address, size) == HAL_OK) {
+    } else {
+      if (HAL_SD_WriteBlocks_DMA(_SD, buffer, address, blocks) == HAL_OK) {
         ret = SD_OK;
-        } else {
+      } else {
         ret = SD_ERROR;
-        }
       }
     }
   }
@@ -696,7 +687,7 @@ bool sd_isBusy(sd_t *obj)
 {
   bool ret = false;
   if (obj->useDMA) {
-    if (__HAL_SD_GET_FLAG(obj->handle.Instance, SDMMC_STATIC_DATA_FLAGS) == 0) {
+    if (__HAL_SD_GET_FLAG(&obj->handle, SDIO_FLAG_TXACT | SDIO_FLAG_RXACT | SDIO_FLAG_CMDACT) == 0) {
       ret = true;
     }
   }
@@ -777,7 +768,7 @@ sd_status_e sd_erase(sd_t *obj, uint32_t start_address, uint32_t end_address)
          Error_Handler();
          break;
      }
-     stm32_interrupt_enable(obj->SD_detect_gpio_port, obj->SD_detect_gpio_pin, callback, GPIO_MODE_IT_RISING_FALLING);
+     stm32_interrupt_enable(obj->SD_detect_gpio_port, obj->SD_detect_ll_gpio_pin, callback, GPIO_MODE_IT_RISING_FALLING);
      sd_state = true;
    }
    return sd_state;
@@ -798,7 +789,7 @@ bool sd_setDetectionInput(sd_t *obj, PinName p, uint32_t level)
     return sd_state;
 }
 
-bool sd_IsDetected(sd_t *obj)
+bool sd_isDetected(sd_t *obj)
 {
     uint8_t ret = false;
     if (obj->SD_detect_gpio_port != 0) {

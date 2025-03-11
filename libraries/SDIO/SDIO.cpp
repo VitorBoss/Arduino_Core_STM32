@@ -50,7 +50,7 @@ void SDIOClass::begin(bool useDMA)
  */
 void SDIOClass::end(void)
 {
-  sd_deinit(&_sd, SDIO_SPEED_CLOCK_DEFAULT, SDIO_MODE_4B, useDMA);
+  sd_deinit(&_sd);
 }
 
 
@@ -61,7 +61,7 @@ void SDIOClass::end(void)
  * @param ulPin: pin status when SD is present, use 0 and non 0 values
   * @retval status of the operation
  */
-bool setDetectionInput(uint32_t ulPin, uint32_t ulLvl)
+bool SDIOClass::setDetectionInput(uint32_t ulPin, uint32_t ulLvl)
 {
   bool ret = false;
   PinName p = digitalPinToPinName(ulPin);
@@ -79,7 +79,7 @@ bool setDetectionInput(uint32_t ulPin, uint32_t ulLvl)
  * @brief  Set a card insertion/remove callback
  * @retval status of the operation
  */
-bool isDetectionCallbakc(void (*callback)(void))
+bool SDIOClass::isDetectionCallbakc(void (*callback)(void))
 {
   return sd_setDetectionInterrupt(&_sd, callback);
 }
@@ -102,7 +102,7 @@ bool SDIOClass::isBusy(void)
 {
   bool ret = false;
   if (_sd.useDMA) {
-    ret = sd_IsBusy(&_sd);
+    ret = sd_isBusy(&_sd);
   }
   return ret;
 }
@@ -112,13 +112,13 @@ bool SDIOClass::isBusy(void)
   *         SD interface
   * @param  buf : buffer to receive data
   * @param  address : data address in the card to be read
-  * @param  count : length of the data to receive
+  * @param  blocks : number of blocks of the data to receive
   * @retval status of the receive operation
   */
- bool SDIOClass::read(void *buf, uint32_t address, size_t count)
+ bool SDIOClass::read(void *buf, uint32_t address, size_t blocks)
 {
   bool ret = false;
-  if (sd_read(&_sd, buf, address, count) == 0) {
+  if (sd_read(&_sd, (uint8_t *)buf, address, blocks) == 0) {
     ret = true;
   }
   return ret;
@@ -129,13 +129,13 @@ bool SDIOClass::isBusy(void)
   *         SD interface
   * @param  buf : buffer with data to be write
   * @param  address : data address in the card to write
-  * @param  count : length of the data to write
+  * @param  blocks : number of blocks of the data to write
   * @retval status of the write operation
   */
- bool SDIOClass::write(void *buf, uint32_t address, size_t count)
+ bool SDIOClass::write(void *buf, uint32_t address, size_t blocks)
 {
   bool ret = false;
-  if (sd_write(&_sd, buf, address, count) == 0) {
+  if (sd_write(&_sd, (uint8_t *)buf, address, blocks) == 0) {
     ret = true;
   }
   return ret;
