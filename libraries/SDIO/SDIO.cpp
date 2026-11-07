@@ -1,9 +1,9 @@
 /**
- * based on ST's https://github.com/stm32duino/STM32SD/blob/main/src/SDIO.c
+ * based on ST's https://github.com/stm32duino/STM32SD/blob/main/src/bsp_sd.c
  */
 #include "SDIO.h"
 
-SDIOClass SD;
+SDIOClass SDIO;
 
 /**
   * @brief  Default Constructor. Uses pin configuration of default SDIO

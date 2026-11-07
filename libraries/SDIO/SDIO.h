@@ -94,7 +94,7 @@
      void detachInterrupt(void);
  
      // Could be used to mix Arduino API and STM32Cube HAL API (ex: DMA). Use at your own risk.
-     SD_HandleTypeDef *getHandle(void)
+     inline SD_HandleTypeDef *getHandle(void)
      {
        return &(_sd.handle);
      }
@@ -103,7 +103,7 @@
      // SD instance
      sd_t         _sd;
  };
- extern SDIOClass SD;
+ extern SDIOClass SDIO;
  
  //#endif  // defined(ARDUINO_ARCH_STM32)
  #endif  // _SDIO_H_INCLUDED
