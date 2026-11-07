@@ -16,45 +16,70 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+/**
+ * @file wiring_shift.c
+ * @brief Bit-banged serial shift functions: shiftIn() and shiftOut().
+ */
+
 #include "Arduino.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-uint32_t shiftIn(uint32_t ulDataPin, uint32_t ulClockPin, uint32_t ulBitOrder)
+/**
+ * @brief Shift in a byte of data one bit at a time.
+ *
+ * Each bit is read while the clock is HIGH, then the clock is set back to LOW.
+ *
+ * @param dataPin Pin number to read the data from.
+ * @param clockPin Pin number to clock the data on.
+ * @param bitOrder LSBFIRST or MSBFIRST.
+ * @return The byte read.
+ */
+uint8_t shiftIn(pin_size_t dataPin, pin_size_t clockPin, BitOrder bitOrder)
 {
   uint8_t value = 0 ;
   uint8_t i ;
 
   for (i = 0 ; i < 8 ; ++i) {
-    digitalWrite(ulClockPin, HIGH) ;
+    digitalWrite(clockPin, HIGH) ;
 
-    if (ulBitOrder == LSBFIRST) {
-      value |= digitalRead(ulDataPin) << i ;
+    if (bitOrder == LSBFIRST) {
+      value |= digitalRead(dataPin) << i ;
     } else {
-      value |= digitalRead(ulDataPin) << (7 - i) ;
+      value |= digitalRead(dataPin) << (7 - i) ;
     }
 
-    digitalWrite(ulClockPin, LOW) ;
+    digitalWrite(clockPin, LOW) ;
   }
 
   return value ;
 }
 
-void shiftOut(uint32_t ulDataPin, uint32_t ulClockPin, uint32_t ulBitOrder, uint32_t ulVal)
+/**
+ * @brief Shift out a byte of data one bit at a time.
+ *
+ * Each bit is written to the data pin, then the clock is pulsed HIGH then LOW.
+ *
+ * @param dataPin Pin number to write the data to.
+ * @param clockPin Pin number to clock the data on.
+ * @param bitOrder LSBFIRST or MSBFIRST.
+ * @param val Byte to shift out.
+ */
+void shiftOut(pin_size_t dataPin, pin_size_t clockPin, BitOrder bitOrder, uint8_t val)
 {
   uint8_t i ;
 
   for (i = 0 ; i < 8 ; i++) {
-    if (ulBitOrder == LSBFIRST) {
-      digitalWrite(ulDataPin, !!(ulVal & (1 << i))) ;
+    if (bitOrder == LSBFIRST) {
+      digitalWrite(dataPin, !!(val & (1 << i))) ;
     } else {
-      digitalWrite(ulDataPin, !!(ulVal & (1 << (7 - i)))) ;
+      digitalWrite(dataPin, !!(val & (1 << (7 - i)))) ;
     }
 
-    digitalWrite(ulClockPin, HIGH) ;
-    digitalWrite(ulClockPin, LOW) ;
+    digitalWrite(clockPin, HIGH) ;
+    digitalWrite(clockPin, LOW) ;
   }
 }
 

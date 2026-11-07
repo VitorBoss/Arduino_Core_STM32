@@ -137,7 +137,7 @@ const PinName digitalPin[] = {
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
   78, //A0
   79, //A1
   80, //A2
@@ -187,8 +187,6 @@ extern "C" {
   *            VDD(V)                         = 3.3
   *            Main regulator output voltage  = Scale1 mode
   *            Flash Latency(WS)              = 5
-  * @param  None
-  * @retval None
   */
 WEAK void SystemClock_Config(void)
 {

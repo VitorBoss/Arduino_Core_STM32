@@ -12,11 +12,10 @@
  */
 #if defined(ARDUINO_GENERIC_C011J4MX) || defined(ARDUINO_GENERIC_C011J6MX)
 #include "pins_arduino.h"
+#include "stm32yyxx_ll_utils.h"
 
 /**
   * @brief  System Clock Configuration
-  * @param  None
-  * @retval None
   */
 WEAK void SystemClock_Config(void)
 {

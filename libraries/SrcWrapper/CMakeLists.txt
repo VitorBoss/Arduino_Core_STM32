@@ -19,10 +19,13 @@ target_link_libraries(SrcWrapper INTERFACE SrcWrapper_usage)
 
 
 add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
+  src/HAL/stm32yyxx_dlyb_core.c
   src/HAL/stm32yyxx_hal.c
   src/HAL/stm32yyxx_hal_adc.c
   src/HAL/stm32yyxx_hal_adc_ex.c
+  src/HAL/stm32yyxx_hal_aes.c
   src/HAL/stm32yyxx_hal_can.c
+  src/HAL/stm32yyxx_hal_ccb.c
   src/HAL/stm32yyxx_hal_cec.c
   src/HAL/stm32yyxx_hal_comp.c
   src/HAL/stm32yyxx_hal_comp_ex.c
@@ -30,10 +33,12 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_cortex.c
   src/HAL/stm32yyxx_hal_crc.c
   src/HAL/stm32yyxx_hal_crc_ex.c
+  src/HAL/stm32yyxx_hal_crs.c
   src/HAL/stm32yyxx_hal_cryp.c
   src/HAL/stm32yyxx_hal_cryp_ex.c
   src/HAL/stm32yyxx_hal_dac.c
   src/HAL/stm32yyxx_hal_dac_ex.c
+  src/HAL/stm32yyxx_hal_dbgmcu.c
   src/HAL/stm32yyxx_hal_dcache.c
   src/HAL/stm32yyxx_hal_dcmi.c
   src/HAL/stm32yyxx_hal_dcmi_ex.c
@@ -51,6 +56,7 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_firewall.c
   src/HAL/stm32yyxx_hal_flash.c
   src/HAL/stm32yyxx_hal_flash_ex.c
+  src/HAL/stm32yyxx_hal_flash_itf.c
   src/HAL/stm32yyxx_hal_flash_ramfunc.c
   src/HAL/stm32yyxx_hal_fmac.c
   src/HAL/stm32yyxx_hal_fmpi2c.c
@@ -68,6 +74,7 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_hcd.c
   src/HAL/stm32yyxx_hal_hrtim.c
   src/HAL/stm32yyxx_hal_hsem.c
+  src/HAL/stm32yyxx_hal_hsp.c
   src/HAL/stm32yyxx_hal_i2c.c
   src/HAL/stm32yyxx_hal_i2c_ex.c
   src/HAL/stm32yyxx_hal_i2s.c
@@ -79,6 +86,7 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_iwdg.c
   src/HAL/stm32yyxx_hal_jpeg.c
   src/HAL/stm32yyxx_hal_lcd.c
+  src/HAL/stm32yyxx_hal_lpawur.c
   src/HAL/stm32yyxx_hal_lptim.c
   src/HAL/stm32yyxx_hal_ltdc.c
   src/HAL/stm32yyxx_hal_ltdc_ex.c
@@ -87,6 +95,8 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_mdma.c
   src/HAL/stm32yyxx_hal_mmc.c
   src/HAL/stm32yyxx_hal_mmc_ex.c
+  src/HAL/stm32yyxx_hal_mrsubg.c
+  src/HAL/stm32yyxx_hal_mrsubg_timer.c
   src/HAL/stm32yyxx_hal_nand.c
   src/HAL/stm32yyxx_hal_nor.c
   src/HAL/stm32yyxx_hal_opamp.c
@@ -97,10 +107,14 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_pcd.c
   src/HAL/stm32yyxx_hal_pcd_ex.c
   src/HAL/stm32yyxx_hal_pka.c
+  src/HAL/stm32yyxx_hal_play.c
   src/HAL/stm32yyxx_hal_pssi.c
   src/HAL/stm32yyxx_hal_pwr.c
   src/HAL/stm32yyxx_hal_pwr_ex.c
+  src/HAL/stm32yyxx_hal_q.c
   src/HAL/stm32yyxx_hal_qspi.c
+  src/HAL/stm32yyxx_hal_radio.c
+  src/HAL/stm32yyxx_hal_radio_timer.c
   src/HAL/stm32yyxx_hal_ramcfg.c
   src/HAL/stm32yyxx_hal_ramecc.c
   src/HAL/stm32yyxx_hal_rcc.c
@@ -111,6 +125,7 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_rtc_ex.c
   src/HAL/stm32yyxx_hal_sai.c
   src/HAL/stm32yyxx_hal_sai_ex.c
+  src/HAL/stm32yyxx_hal_sbs.c
   src/HAL/stm32yyxx_hal_sd.c
   src/HAL/stm32yyxx_hal_sd_ex.c
   src/HAL/stm32yyxx_hal_sdadc.c
@@ -126,6 +141,7 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_sram.c
   src/HAL/stm32yyxx_hal_subghz.c
   src/HAL/stm32yyxx_hal_swpmi.c
+  src/HAL/stm32yyxx_hal_tamp.c
   src/HAL/stm32yyxx_hal_tim.c
   src/HAL/stm32yyxx_hal_tim_ex.c
   src/HAL/stm32yyxx_hal_tsc.c
@@ -135,6 +151,11 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/HAL/stm32yyxx_hal_usart_ex.c
   src/HAL/stm32yyxx_hal_wwdg.c
   src/HAL/stm32yyxx_hal_xspi.c
+  src/HAL/stm32yyxx_usb_drd_core.c
+  src/HAL/stm32yyxx_util_i3c.c
+  src/HAL/stm32yyxx_utils_fdcan.c
+  src/HAL/stm32yyxx_utils_i2c.c
+  src/HAL/stm32yyxx_utils_i3c.c
   src/HardwareTimer.cpp
   src/LL/stm32yyxx_ll_adc.c
   src/LL/stm32yyxx_ll_bdma.c
@@ -157,12 +178,14 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/LL/stm32yyxx_ll_i2c.c
   src/LL/stm32yyxx_ll_i3c.c
   src/LL/stm32yyxx_ll_icache.c
+  src/LL/stm32yyxx_ll_lcsc.c
   src/LL/stm32yyxx_ll_lpgpio.c
   src/LL/stm32yyxx_ll_lptim.c
   src/LL/stm32yyxx_ll_lpuart.c
   src/LL/stm32yyxx_ll_mdma.c
   src/LL/stm32yyxx_ll_opamp.c
   src/LL/stm32yyxx_ll_pka.c
+  src/LL/stm32yyxx_ll_play.c
   src/LL/stm32yyxx_ll_pwr.c
   src/LL/stm32yyxx_ll_rcc.c
   src/LL/stm32yyxx_ll_rng.c
@@ -170,6 +193,7 @@ add_library(SrcWrapper_bin OBJECT EXCLUDE_FROM_ALL
   src/LL/stm32yyxx_ll_sdmmc.c
   src/LL/stm32yyxx_ll_spi.c
   src/LL/stm32yyxx_ll_swpmi.c
+  src/LL/stm32yyxx_ll_system.c
   src/LL/stm32yyxx_ll_tim.c
   src/LL/stm32yyxx_ll_ucpd.c
   src/LL/stm32yyxx_ll_usart.c

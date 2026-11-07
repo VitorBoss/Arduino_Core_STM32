@@ -18,6 +18,7 @@ set(BOARDNAME "{{boardname or "@board_name_here@"}}")
 
 list(APPEND CMAKE_MODULE_PATH {{"${CORE_PATH}"}}/cmake)
 set(CMAKE_TOOLCHAIN_FILE toolchain)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 # This block can be removed when using this file as the sketch's CMakeLists.txt
@@ -90,6 +91,7 @@ build_sketch(TARGET "{{tgtname or "@binary_name_here@"}}"
   # DEPENDS
   # SD
   # Wire
+  # I3C
   # SPI
   # USBDevice
   # VirtIO

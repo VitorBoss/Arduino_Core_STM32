@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (c) 2020, STMicroelectronics
+ * Copyright (c) 2020-2026, STMicroelectronics
  * All rights reserved.
  *
  * This software component is licensed by ST under BSD 3-Clause license,
@@ -188,6 +188,8 @@
 #define PB7_ALT1                (PB7  | ALT1)
 #define PB8_ALT1                (PB8  | ALT1)
 #define PB9_ALT1                (PB9  | ALT1)
+#define PB11_ALT1               (PB11 | ALT1)
+#define PB12_ALT1               (PB12 | ALT1)
 #define PB14_ALT1               (PB14 | ALT1)
 #define PB14_ALT2               (PB14 | ALT2)
 #define PB15_ALT1               (PB15 | ALT1)
@@ -206,7 +208,10 @@
 #define PC11_ALT1               (PC11 | ALT1)
 #define PF8_ALT1                (PF8  | ALT1)
 #define PF9_ALT1                (PF9  | ALT1)
+#define PG11_ALT1               (PG11 | ALT1)
+#define PG12_ALT1               (PG12 | ALT1)
 #define PG13_ALT1               (PG13 | ALT1)
+#define PG14_ALT1               (PG14 | ALT1)
 #define PH6_ALT1                (PH6  | ALT1)
 #define PH6_ALT2                (PH6  | ALT2)
 #define PH7_ALT1                (PH7  | ALT1)
@@ -263,6 +268,14 @@
   #define PIN_WIRE_SCL          PB10
 #endif
 
+// I3C definitions
+#ifndef PIN_I3C_SDA
+  #define PIN_I3C_SDA           PB7
+#endif
+#ifndef PIN_I3C_SCL
+  #define PIN_I3C_SCL           PB6
+#endif
+
 // Timer Definitions
 // Use TIM6/TIM7 when possible as servo and tone don't need GPIO output pin
 #ifndef TIMER_TONE
@@ -292,6 +305,9 @@
 #endif
 #if !defined(HAL_ETH_MODULE_DISABLED)
   #define HAL_ETH_MODULE_ENABLED
+#endif
+#if !defined(HAL_I3C_MODULE_DISABLED)
+  #define HAL_I3C_MODULE_ENABLED
 #endif
 #if !defined(HAL_OSPI_MODULE_DISABLED)
   #define HAL_OSPI_MODULE_ENABLED

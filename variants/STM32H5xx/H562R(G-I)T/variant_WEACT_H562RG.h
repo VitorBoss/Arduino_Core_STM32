@@ -188,6 +188,14 @@ P1                P2
   #define PIN_WIRE_SCL          PB6
 #endif
 
+// I3C definitions
+#ifndef PIN_I3C_SDA
+  #define PIN_I3C_SDA           PB7
+#endif
+#ifndef PIN_I3C_SCL
+  #define PIN_I3C_SCL           PB6
+#endif
+
 // Timer Definitions
 // Use TIM6/TIM7 when possible as servo and tone don't need GPIO output pin
 #ifndef TIMER_TONE
@@ -215,14 +223,15 @@ P1                P2
 #if !defined(HAL_DAC_MODULE_DISABLED)
   #define HAL_DAC_MODULE_ENABLED
 #endif
+#if !defined(HAL_I3C_MODULE_DISABLED)
+  #define HAL_I3C_MODULE_ENABLED
+#endif
 #if !defined(HAL_OSPI_MODULE_DISABLED)
   #define HAL_OSPI_MODULE_ENABLED
 #endif
 #if !defined(HAL_SD_MODULE_DISABLED)
   #define HAL_SD_MODULE_ENABLED
 #endif
-
-#define HSE_VALUE               8000000UL
 
 // SD card slot Definitions
 // SDMMC signals not available
@@ -256,6 +265,8 @@ P1                P2
 #ifndef SDX_CK
   #define SDX_CK                PC12
 #endif
+
+#define HSE_VALUE               8000000UL
 
 /*----------------------------------------------------------------------------
  *        Arduino objects - C++ only

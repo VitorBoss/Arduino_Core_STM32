@@ -50,12 +50,15 @@ extern "C" {
 #define HAL_GPIO_MODULE_ENABLED
 #define HAL_GTZC_MODULE_ENABLED
 #define HAL_HASH_MODULE_ENABLED
+#define HAL_HCD_MODULE_ENABLED
 #define HAL_HSEM_MODULE_ENABLED
 #define HAL_I2C_MODULE_ENABLED
 #define HAL_ICACHE_MODULE_ENABLED
 #define HAL_IRDA_MODULE_ENABLED
 #define HAL_IWDG_MODULE_ENABLED
 #define HAL_LPTIM_MODULE_ENABLED
+#define HAL_OTFDEC_MODULE_ENABLED
+#define HAL_PCD_MODULE_ENABLED
 #define HAL_PKA_MODULE_ENABLED
 #define HAL_PWR_MODULE_ENABLED
 #define HAL_RAMCFG_MODULE_ENABLED
@@ -71,6 +74,7 @@ extern "C" {
 #define HAL_UART_MODULE_ENABLED
 #define HAL_USART_MODULE_ENABLED
 #define HAL_WWDG_MODULE_ENABLED
+#define HAL_XSPI_MODULE_ENABLED
 #endif
 
 /* ########################## Oscillator Values adaptation ####################*/
@@ -173,10 +177,13 @@ extern "C" {
 #define  USE_HAL_COMP_REGISTER_CALLBACKS       0U /* COMP register callback disabled      */
 #define  USE_HAL_CRYP_REGISTER_CALLBACKS       0U /* CRYP register callback disabled      */
 #define  USE_HAL_HASH_REGISTER_CALLBACKS       0U /* HASH register callback disabled      */
+#define  USE_HAL_HCD_REGISTER_CALLBACKS        0U /* HCD register callback disabled       */
 #define  USE_HAL_I2C_REGISTER_CALLBACKS        0U /* I2C register callback disabled       */
 #define  USE_HAL_IRDA_REGISTER_CALLBACKS       0U /* IRDA register callback disabled      */
 #define  USE_HAL_IWDG_REGISTER_CALLBACKS       0U /* IWDG register callback disabled      */
 #define  USE_HAL_LPTIM_REGISTER_CALLBACKS      0U /* LPTIM register callback disabled     */
+#define  USE_HAL_OTFDEC_REGISTER_CALLBACKS     0U /* OTFDEC register callback disabled    */
+#define  USE_HAL_PCD_REGISTER_CALLBACKS        0U /* PCD register callback disabled       */
 #define  USE_HAL_PKA_REGISTER_CALLBACKS        0U /* PKA register callback disabled       */
 #define  USE_HAL_RAMCFG_REGISTER_CALLBACKS     0U /* RAMCFG register callback disabled    */
 #define  USE_HAL_RNG_REGISTER_CALLBACKS        0U /* RNG register callback disabled       */
@@ -190,6 +197,7 @@ extern "C" {
 #define  USE_HAL_UART_REGISTER_CALLBACKS       0U /* UART register callback disabled      */
 #define  USE_HAL_USART_REGISTER_CALLBACKS      0U /* USART register callback disabled     */
 #define  USE_HAL_WWDG_REGISTER_CALLBACKS       0U /* WWDG register callback disabled      */
+#define  USE_HAL_XSPI_REGISTER_CALLBACKS       0U /* XSPI register callback disabled      */
 
 /* ################## SPI peripheral configuration ########################## */
 
@@ -214,6 +222,10 @@ extern "C" {
 #ifdef HAL_DMA_MODULE_ENABLED
 #include "stm32wbaxx_hal_dma.h"
 #endif /* HAL_DMA_MODULE_ENABLED */
+
+#ifdef HAL_RCC_MODULE_ENABLED
+#include "stm32wbaxx_hal_rcc.h"
+#endif /* HAL_RCC_MODULE_ENABLED */
 
 #ifdef HAL_ADC_MODULE_ENABLED
 #include "stm32wbaxx_hal_adc.h"
@@ -255,6 +267,10 @@ extern "C" {
 #include "stm32wbaxx_hal_hash.h"
 #endif /* HAL_HASH_MODULE_ENABLED */
 
+#ifdef HAL_HCD_MODULE_ENABLED
+#include "stm32wbaxx_hal_hcd.h"
+#endif /* HAL_HCD_MODULE_ENABLED */
+
 #ifdef HAL_HSEM_MODULE_ENABLED
 #include "stm32wbaxx_hal_hsem.h"
 #endif /* HAL_HSEM_MODULE_ENABLED */
@@ -279,6 +295,14 @@ extern "C" {
 #include "stm32wbaxx_hal_lptim.h"
 #endif /* HAL_LPTIM_MODULE_ENABLED */
 
+#ifdef HAL_OTFDEC_MODULE_ENABLED
+#include "stm32wbaxx_hal_otfdec.h"
+#endif /* HAL_OTFDEC_MODULE_ENABLED */
+
+#ifdef HAL_PCD_MODULE_ENABLED
+#include "stm32wbaxx_hal_pcd.h"
+#endif /* HAL_PCD_MODULE_ENABLED */
+
 #ifdef HAL_PKA_MODULE_ENABLED
 #include "stm32wbaxx_hal_pka.h"
 #endif /* HAL_PKA_MODULE_ENABLED */
@@ -290,10 +314,6 @@ extern "C" {
 #ifdef HAL_RAMCFG_MODULE_ENABLED
 #include "stm32wbaxx_hal_ramcfg.h"
 #endif /* HAL_RAMCFG_MODULE_ENABLED */
-
-#ifdef HAL_RCC_MODULE_ENABLED
-#include "stm32wbaxx_hal_rcc.h"
-#endif /* HAL_RCC_MODULE_ENABLED */
 
 #ifdef HAL_RNG_MODULE_ENABLED
 #include "stm32wbaxx_hal_rng.h"
@@ -339,19 +359,29 @@ extern "C" {
 #include "stm32wbaxx_hal_wwdg.h"
 #endif /* HAL_WWDG_MODULE_ENABLED */
 
+#ifdef HAL_XSPI_MODULE_ENABLED
+#include "stm32wbaxx_hal_xspi.h"
+#endif /* HAL_XSPI_MODULE_ENABLED */
 
 /* Exported macro ------------------------------------------------------------*/
 #ifdef  USE_FULL_ASSERT
 /**
   * @brief  The assert_param macro is used for function's parameters check.
-  * @param  expr: If expr is false, it calls assert_failed function
+  * @param expr If expr is false, it calls assert_failed function
   *         which reports the name of the source file and the source
   *         line number of the call that failed.
   *         If expr is true, it returns no value.
-  * @retval None
   */
 #define assert_param(expr) ((expr) ? (void)0U : assert_failed((uint8_t *)__FILE__, __LINE__))
 /* Exported functions ------------------------------------------------------- */
+/**
+  * @brief Reports the file and line of a failed assert_param() check.
+  *
+  * Called by assert_param() when USE_FULL_ASSERT is defined. The default
+  * implementation is weak and can be overridden by the application.
+  * @param file pointer to the source file name
+  * @param line source line number of the failed assert_param() check
+  */
 void assert_failed(uint8_t *file, uint32_t line);
 #else
 #define assert_param(expr) ((void)0U)

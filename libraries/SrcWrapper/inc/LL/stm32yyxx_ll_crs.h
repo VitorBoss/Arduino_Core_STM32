@@ -10,6 +10,8 @@
 
 #ifdef STM32C0xx
   #include "stm32c0xx_ll_crs.h"
+#elif STM32C5xx
+  #include "stm32c5xx_ll_crs.h"
 #elif STM32F0xx
   #include "stm32f0xx_ll_crs.h"
 #elif STM32G0xx
@@ -28,6 +30,8 @@
   #include "stm32l5xx_ll_crs.h"
 #elif STM32U0xx
   #include "stm32u0xx_ll_crs.h"
+#elif STM32U3xx
+  #include "stm32u3xx_ll_crs.h"
 #elif STM32U5xx
   #include "stm32u5xx_ll_crs.h"
 #elif STM32WBxx

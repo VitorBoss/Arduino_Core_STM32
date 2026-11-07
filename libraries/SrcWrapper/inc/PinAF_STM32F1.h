@@ -37,6 +37,9 @@
 extern "C" {
 #endif
 
+/* Stub for STM32F1xx */
+#define LL_GPIO_PULL_NO 0x00000002u
+
 enum {
   AFIO_NONE,
   AFIO_SPI1_ENABLE,
@@ -171,6 +174,10 @@ enum {
 #endif
 };
 
+/**
+  * @brief Disconnect the JTAG/SWD debug pins on STM32F1xx.
+  * @param pin Pin name.
+  */
 static inline void pinF1_DisconnectDebug(PinName pin)
 {
   /** Enable this flag gives the possibility to use debug pins without any risk
@@ -189,10 +196,14 @@ static inline void pinF1_DisconnectDebug(PinName pin)
     __HAL_AFIO_REMAP_SWJ_NOJTAG(); // JTAG-DP Disabled and SW-DP enabled
   }
 #else
-  UNUSED(pin);
+  (void)pin;
 #endif /* STM32F1_FORCE_DEBUG */
 }
 
+/**
+  * @brief Enable or disable an AFIO remap, selected by an AFIO_*_ENABLE/DISABLE value.
+  * @param afnum AFIO remap value (AFIO_*_ENABLE or AFIO_*_DISABLE).
+  */
 static inline void pin_SetF1AFPin(uint32_t afnum)
 {
   // Enable AFIO clock

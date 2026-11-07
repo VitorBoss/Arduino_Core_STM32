@@ -16,36 +16,54 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "WInterrupts.h"
+/**
+ * @file WInterrupts.cpp
+ * @brief External interrupt functions: attachInterrupt() and detachInterrupt().
+ */
+
 #include "Arduino.h"
 
 #include "PinAF_STM32F1.h"
 #include "interrupt.h"
 
-void attachInterrupt(uint32_t pin, callback_function_t callback, uint32_t mode)
-{
 #if !defined(HAL_EXTI_MODULE_DISABLED)
+void attachInterrupt(pin_size_t interruptNumber, callback_function_t callback, PinStatus mode)
+{
   uint32_t it_mode;
-  PinName p = digitalPinToPinName(pin);
-  GPIO_TypeDef *port = set_GPIO_Port_Clock(STM_PORT(p));
-  if (!port) {
-    return;
-  }
+  PinName p = digitalPinToPinName(interruptNumber);
 
   switch (mode) {
     case CHANGE :
+#if defined(GPIO_MODE_IT_RISING_FALLING)
       it_mode = GPIO_MODE_IT_RISING_FALLING;
+#else
+      it_mode = HAL_EXTI_TRIGGER_RISING_FALLING;
+#endif
       break;
-    case FALLING :
     case LOW :
+#ifdef GPIO_MODE_IT_LEVEL_LOW
+      it_mode = GPIO_MODE_IT_LEVEL_LOW;
+      break;
+#endif
+    case FALLING :
+#if defined(GPIO_MODE_IT_FALLING)
       it_mode = GPIO_MODE_IT_FALLING;
+#else
+      it_mode = HAL_EXTI_TRIGGER_FALLING;
+#endif
       break;
-    case RISING :
     case HIGH :
-      it_mode = GPIO_MODE_IT_RISING;
+#ifdef GPIO_MODE_IT_LEVEL_HIGH
+      it_mode = GPIO_MODE_IT_LEVEL_HIGH;
       break;
+#endif
     default:
+    case RISING :
+#if defined(GPIO_MODE_IT_RISING)
       it_mode = GPIO_MODE_IT_RISING;
+#else
+      it_mode = HAL_EXTI_TRIGGER_RISING;
+#endif
       break;
   }
 
@@ -53,37 +71,43 @@ void attachInterrupt(uint32_t pin, callback_function_t callback, uint32_t mode)
   pinF1_DisconnectDebug(p);
 #endif /* STM32F1xx */
 
-  stm32_interrupt_enable(port, STM_GPIO_PIN(p), callback, it_mode);
-#else
-  UNUSED(pin);
-  UNUSED(callback);
-  UNUSED(mode);
-#endif
+  stm32_interrupt_enable(p, callback, it_mode);
 }
-
-void attachInterrupt(uint32_t pin, void (*callback)(void), uint32_t mode)
+#endif
+/**
+ * @brief Attach a function to an external interrupt on a pin, using a plain function pointer.
+ *
+ * @param interruptNumber Pin to attach the interrupt to.
+ * @param callback Function called when the interrupt fires.
+ * @param mode Trigger mode: CHANGE, RISING, FALLING, LOW or HIGH.
+ */
+void attachInterrupt(pin_size_t interruptNumber, voidFuncPtr callback, PinStatus mode)
 {
 #if !defined(HAL_EXTI_MODULE_DISABLED)
   callback_function_t _c = callback;
-  attachInterrupt(pin, _c, mode);
+  attachInterrupt(interruptNumber, _c, mode);
 #else
-  UNUSED(pin);
-  UNUSED(callback);
-  UNUSED(mode);
+  (void)interruptNumber;
+  (void)callback;
+  (void)mode;
 #endif
-
 }
 
-void detachInterrupt(uint32_t pin)
+/**
+ * @brief Disable the external interrupt attached to a pin.
+ *
+ * @param interruptNumber Pin whose interrupt is disabled.
+ */
+void detachInterrupt(pin_size_t interruptNumber)
 {
 #if !defined(HAL_EXTI_MODULE_DISABLED)
-  PinName p = digitalPinToPinName(pin);
+  PinName p = digitalPinToPinName(interruptNumber);
   GPIO_TypeDef *port = get_GPIO_Port(STM_PORT(p));
   if (!port) {
     return;
   }
   stm32_interrupt_disable(port, STM_GPIO_PIN(p));
 #else
-  UNUSED(pin);
+  (void)interruptNumber;
 #endif
 }

@@ -9,6 +9,10 @@ on:
       - '!.github/workflows/PIO-build.yml'
       - '*.json'
       - '**.md'
+      - docs/**
+      - doxygen/**
+      - mkdocs.yml
+      - requirements-docs.txt
       - keywords.txt
       - CI/**
       - '!CI/build/platformio-builder.py'
@@ -22,6 +26,10 @@ on:
       - '!.github/workflows/PIO-build.yml'
       - '*.json'
       - '**.md'
+      - docs/**
+      - doxygen/**
+      - mkdocs.yml
+      - requirements-docs.txt
       - keywords.txt
       - CI/**
       - '!CI/build/platformio-builder.py'
@@ -38,6 +46,8 @@ jobs:
       # First of all, clone the repo using the checkout action.
     - name: Checkout
       uses: actions/checkout@main
+      with:
+        submodules: true
 
     - name: PlatformIO
       id: Compile

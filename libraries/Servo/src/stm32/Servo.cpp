@@ -16,13 +16,11 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 */
 
-#if defined(ARDUINO_ARCH_STM32)
-
-#include <Arduino.h>
 #include <Servo.h>
 #include <HardwareTimer.h>
 
-#if defined(HAL_TIM_MODULE_ENABLED) && defined(TIMER_SERVO) && !defined(HAL_TIM_MODULE_ONLY)
+#if defined(TIMER_SERVO) && !defined(HAL_TIM_MODULE_ONLY) &&\
+    (defined(HAL_TIM_MODULE_ENABLED) || (defined(USE_HAL_TIM_MODULE) && (USE_HAL_TIM_MODULE == 1)))
 
 static servo_t servos[MAX_SERVOS];                         // static array of servo structures
 static volatile int8_t timerChannel[_Nbr_16timers] = {-1}; // counter for the servo being pulsed for each timer (or -1 if refresh interval)
@@ -40,6 +38,10 @@ uint8_t ServoCount = 0;                                    // the total number o
 /************ static functions common to all instances ***********************/
 
 volatile uint32_t CumulativeCountSinceRefresh = 0;
+/**
+  * @brief  Timer update callback: pulse the servos one after the other,
+  *         then wait for the refresh interval to expire before starting over.
+  */
 static void Servo_PeriodElapsedCallback()
 {
   // Only 1 timer used
@@ -75,6 +77,10 @@ static void Servo_PeriodElapsedCallback()
   }
 }
 
+/**
+  * @brief  Configure the servo timer with a 1 microsecond tick, the refresh
+  *         interval as period and the update callback, then start it.
+  */
 static void TimerServoInit()
 {
   // prescaler is computed so that timer tick correspond to 1 microseconde
@@ -88,9 +94,12 @@ static void TimerServoInit()
 }
 
 
+/**
+  * @brief  Check if any servo is active on the servo timer.
+  * @return true if at least one servo is active, false otherwise.
+  */
 static bool isTimerActive()
 {
-  // returns true if any servo is active on this timer
   for (uint8_t channel = 0; channel < SERVOS_PER_TIMER; channel++) {
     if (servos[channel].Pin.isActive == true) {
       return true;
@@ -111,12 +120,12 @@ Servo::Servo()
   }
 }
 
-uint8_t Servo::attach(int pin, int value)
+uint8_t Servo::attach(pin_size_t pin, int value)
 {
   return this->attach(pin, MIN_PULSE_WIDTH, MAX_PULSE_WIDTH, value);
 }
 
-uint8_t Servo::attach(int pin, int min, int max, int value)
+uint8_t Servo::attach(pin_size_t pin, int min, int max, int value)
 {
   if (this->servoIndex < MAX_SERVOS) {
     pinMode(pin, OUTPUT);                                   // set servo pin to output
@@ -199,28 +208,30 @@ bool Servo::attached()
 
 #else
 
-#warning "TIMER_TONE or HAL_TIM_MODULE_ENABLED not defined"
+#warning "TIMER_TONE or HAL_TIM_MODULE_ENABLED or USE_HAL_TIM_MODULE set to 1 not defined"
 Servo::Servo() {}
-uint8_t Servo::attach(int pin)
+uint8_t Servo::attach(pin_size_t pin, int value)
 {
-  UNUSED(pin);
+  (void)pin;
+  (void)value;
   return 0;
 }
-uint8_t Servo::attach(int pin, int min, int max)
+uint8_t Servo::attach(pin_size_t pin, int min, int max, int value)
 {
-  UNUSED(pin);
-  UNUSED(min);
-  UNUSED(max);
+  (void)pin;
+  (void)min;
+  (void)max;
+  (void)value;
   return 0;
 }
 void Servo::detach() {}
 void Servo::write(int value)
 {
-  UNUSED(value);
+  (void)value;
 }
 void Servo::writeMicroseconds(int value)
 {
-  UNUSED(value);
+  (void)value;
 }
 int Servo::read()
 {
@@ -230,8 +241,9 @@ int Servo::readMicroseconds()
 {
   return 0;
 }
-bool Servo::attached() {}
+bool Servo::attached()
+{
+  return false;
+}
 
-#endif /* HAL_TIM_MODULE_ENABLED && TIMER_SERVO & !HAL_TIM_MODULE_ONLY */
-
-#endif // ARDUINO_ARCH_STM32
+#endif /* TIMER_SERVO && !HAL_TIM_MODULE_ONLY && (HAL_TIM_MODULE_ENABLED || USE_HAL_TIM_MODULE...) */

@@ -164,6 +164,9 @@
 
          (+) The maximum frequency of the SYSCLK, HCLK, PCLK is 48 MHz.
 
+         (+) When the HSI48 oscillator is selected as the System clock (SYSCLK), the number of CPU wait states must
+             be adjusted before any eventual update on the HSI48 clock division factor.
+
   @endverbatim
 
      (++)  Table 1. HCLK clock frequency.
@@ -282,6 +285,9 @@ HAL_StatusTypeDef HAL_RCC_DeInit(void)
   * @note   Transition LSE Bypass to LSE On and LSE On to LSE Bypass are not
   *         supported by this function. User should request a transition to LSE Off
   *         first and then to LSE On or LSE Bypass.
+  * @note   When the HSI48 oscillator is selected as the System clock (SYSCLK), the user
+            must adjust the number of CPU wait states in their application (SystemClock_Config() API)
+            before calling the HAL_RCC_OscConfig() API to update the HSI48 clock division factor.
   * @retval HAL status
   */
 HAL_StatusTypeDef HAL_RCC_OscConfig(const RCC_OscInitTypeDef  *RCC_OscInitStruct)
@@ -814,10 +820,16 @@ HAL_StatusTypeDef HAL_RCC_ClockConfig(const RCC_ClkInitTypeDef  *RCC_ClkInitStru
 
 /**
   * @brief  Select the clock source to output on MCOx pin.
-  * @note   PA8 for MCO1 and PB2 for MCO2 should be configured in alternate function mode.
+  * @note   The selected MCOx pin should be configured in alternate function mode.
   * @param  RCC_MCOx  specifies the output direction for the clock source.
-  *            @arg @ref RCC_MCO1  Clock source to output on MCO1 pins.
-  *            @arg @ref RCC_MCO2  Clock source to output on MCO2 pins.
+  *            @arg @ref RCC_MCO1_PA8  Clock source to output on MCO1 pin(PA8)
+  *            @arg @ref RCC_MCO1_PA9  Clock source to output on MCO1 pin(PA9)
+  *            @arg @ref RCC_MCO1_PF2  Clock source to output on MCO1 pin(PF2)
+  *            @arg @ref RCC_MCO2_PA8  Clock source to output on MCO2 pin(PA8)
+  *            @arg @ref RCC_MCO2_PA10 Clock source to output on MCO2 pin(PA10)
+  *            @arg @ref RCC_MCO2_PA14 Clock source to output on MCO2 pin(PA14)
+  *            @arg @ref RCC_MCO2_PA15 Clock source to output on MCO2 pin(PA15)(*)
+  *            @arg @ref RCC_MCO2_PB2  Clock source to output on MCO2 pin(PB2)(*)
   * @param  RCC_MCOSource  specifies the clock source to output.
   *          This parameter can be one of the following values:
   *            @arg @ref RCC_MCO1SOURCE_NOCLOCK  MCO1 output disabled, no clock on MCO1

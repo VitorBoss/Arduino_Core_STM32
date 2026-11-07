@@ -3,16 +3,16 @@ import re
 import subprocess
 import shutil
 import sys
+from collections import OrderedDict
 from pathlib import Path
 
 
 # Add default key/value pair to config file
 def defaultConfig(config_file_path: Path, data: dict):
     print(f"Please check the default configuration '{config_file_path}'.")
-    config_file = open(config_file_path, "w")
-    config_file.write(json.dumps(data, indent=2))
-    config_file.close()
-    exit(1)
+    with open(config_file_path, "w") as config_file:
+        config_file.write(json.dumps(data, indent=2))
+    sys.exit(1)
 
 
 # Create a folder if not exists
@@ -21,6 +21,7 @@ def createFolder(path: Path):
         path.mkdir(parents=True, exist_ok=True)
     except OSError:
         print(f"Error: Creating directory {path}")
+        sys.exit(1)
 
 
 # Delete targeted folder recursively
@@ -30,12 +31,15 @@ def deleteFolder(path: Path):
 
 
 # copy src folder recursively to dest
-def copyFolder(src, dest, ign_patt=set()):
+def copyFolder(src, dest, ign_patt=None):
+    if ign_patt is None:
+        ign_patt = set()
     try:
         if src.is_dir():
             shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ign_patt))
     except OSError as e:
         print(f"Error: Folder {src} not copied. {e}")
+        sys.exit(1)
 
 
 # copy one file to dest
@@ -45,24 +49,59 @@ def copyFile(src: Path, dest: Path):
             shutil.copy(str(src), str(dest))
     except OSError as e:
         print(f"Error: File {src} not copied. {e}")
+        sys.exit(1)
 
 
-# get list of STM32 series from HAL driver directory
-def genSTM32List(path: Path, pattern: str = None):
-    stm32_list = []  # series
-    dir_pattern = re.compile(r"^STM32(.*)xx_HAL_Driver$", re.IGNORECASE)
+# copy all files with specified extension from src to dest
+def copyFilesWithExt(src: Path, dest: Path, extension: str):
+    try:
+        if src.is_dir():
+            for file in src.iterdir():
+                if file.is_file() and file.suffix == extension:
+                    shutil.copy(str(file), str(dest))
+    except OSError as e:
+        print(f"Error: Files from {src} not copied. {e}")
+        sys.exit(1)
 
-    if pattern is not None:
-        serie_pattern = re.compile(pattern, re.IGNORECASE)
-    else:
-        serie_pattern = re.compile(".*", re.IGNORECASE)
+
+def loadSTM32Series(script_path: Path, load_v1: bool = True, load_v2: bool = False):
+    # Load stm32 series from json file
+    stm32_series_file = script_path / "stm32_series.json"
+    with open(stm32_series_file, "r") as json_file:
+        stm32_series = json.load(json_file)
+    stm32_dict = OrderedDict()
+    if load_v1:
+        stm32_dict.update(stm32_series["series"])
+    if load_v2:
+        stm32_dict.update(stm32_series["seriesv2"])
+    return stm32_dict
+
+
+# Get dict of STM32 series from HAL driver directory
+def genSTM32Dict(path: Path, pattern: str = None):
+    stm32_dict = OrderedDict()  # series: nx
+    dir_pattern = re.compile(r"^STM32([^x]+)xx?_HAL_Driver$", re.IGNORECASE)
 
     for file in path.iterdir():
-        res = dir_pattern.match(file.name)
-        if res and serie_pattern.search(res.group(1)):
-            stm32_list.append(res.group(1))
-    stm32_list.sort()
-    return stm32_list
+        if file.is_dir():
+            if not any(file.iterdir()):
+                file.rmdir()  # remove empty directories
+                continue
+            res = dir_pattern.match(file.name)
+            if res:
+                if pattern is not None and res.group(1) != pattern.upper():
+                    continue
+                if "xx" in file.name:
+                    nx = "xx"
+                elif "x" in file.name:
+                    nx = "x"
+                else:
+                    # Error: no x or xx in series name
+                    print(f"Error: No x or xx in series name {file.name}")
+                    sys.exit(1)
+                stm32_dict[res.group(1)] = nx
+    # stm32_list.sort()
+    return stm32_dict
 
 
 def execute_cmd(cmd: list, stderror: int):
@@ -70,7 +109,7 @@ def execute_cmd(cmd: list, stderror: int):
         output = subprocess.check_output(cmd, stderr=stderror).decode("utf-8").strip()
     except subprocess.CalledProcessError as e:
         print(f"Command {e.cmd} failed with error code {e.returncode}")
-        exit(e.returncode)
+        sys.exit(e.returncode)
     return output
 
 
@@ -86,8 +125,54 @@ def getRepoBranchName(repo_path: Path):
             bname = name_match.group(2)
     if not bname:
         print(f"Could not find branch name for {repo_path}!")
-        exit(1)
+        sys.exit(1)
     return (rname, bname)
+
+
+# Commit files without trailing space
+def commitFiles(repo_path, commit_msg):
+    # Check if there is something to commit
+    status = execute_cmd(
+        ["git", "-C", repo_path, "status", "--untracked-files", "--short"], None
+    )
+    if not status:
+        return False
+    # Staged all files: new, modified and deleted
+    execute_cmd(["git", "-C", repo_path, "add", "--all"], subprocess.DEVNULL)
+    # Commit all stage files with signoff and message
+    execute_cmd(
+        [
+            "git",
+            "-C",
+            repo_path,
+            "commit",
+            "--all",
+            "--signoff",
+            f"--message={commit_msg}",
+        ],
+        subprocess.DEVNULL,
+    )
+    # Remove trailing space
+    execute_cmd(
+        ["git", "-C", repo_path, "rebase", "--whitespace=fix", "HEAD~1"],
+        subprocess.DEVNULL,
+    )
+    return True
+
+
+def addSeriesToConfig(script_path, series, nx, section):
+    stm32_series_file = script_path / "stm32_series.json"
+    if not stm32_series_file.is_file():
+        print(f"{stm32_series_file} does not exist!")
+        return False
+    with open(stm32_series_file, "r") as fp:
+        stm32_series_data = json.load(fp)
+    if series not in stm32_series_data:
+        stm32_series_data[section][series] = nx
+        with open(stm32_series_file, "w") as fp:
+            json.dump(stm32_series_data, fp, indent=2)
+        print(f"Added series {series} with nx={nx} to stm32_series.json")
+    return True
 
 
 if __name__ == "__main__":

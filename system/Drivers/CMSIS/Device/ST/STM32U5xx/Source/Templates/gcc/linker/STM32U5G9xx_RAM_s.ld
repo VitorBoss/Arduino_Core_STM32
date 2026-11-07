@@ -37,6 +37,7 @@ ENTRY(Reset_Handler)
 
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
+_sstack = _estack - _Min_Stack_Size;
 
 _Min_Heap_Size = 0x200 ; /* required amount of heap */
 _Min_Stack_Size = 0x400 ; /* required amount of stack */
@@ -44,7 +45,7 @@ _Min_Stack_Size = 0x400 ; /* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  RAM (xrw)     : ORIGIN = 0x30000000, LENGTH = 760K     /* Memory is divided. Actual start is 0x30000000 and actual length is 2512K */
+  RAM (xrw)     : ORIGIN = 0x30000000, LENGTH = 832K     /* Memory is divided. Actual start is 0x30000000 and actual length is 832K */
   RAM_NSC (xrw) : ORIGIN = 0x300BE000, LENGTH = 8K       /* Non-Secure Call-able region */
   SRAM4 (xrw)   : ORIGIN = 0x38000000, LENGTH = 16K      /* Secure SRAM4 */
 }

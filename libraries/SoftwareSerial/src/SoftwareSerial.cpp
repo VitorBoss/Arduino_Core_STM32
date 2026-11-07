@@ -141,8 +141,6 @@ void SoftwareSerial::setSpeed(uint32_t speed)
   }
 }
 
-// This function sets the current object as the "listening"
-// one and returns true if it replaces another
 bool SoftwareSerial::listen()
 {
   if (active_listener != this) {
@@ -165,7 +163,6 @@ bool SoftwareSerial::listen()
   return false;
 }
 
-// Stop listening. Returns true if we were actually listening.
 bool SoftwareSerial::stopListening()
 {
   if (active_listener == this) {
@@ -306,7 +303,7 @@ inline void SoftwareSerial::handleInterrupt()
 //
 // Constructor
 //
-SoftwareSerial::SoftwareSerial(uint16_t receivePin, uint16_t transmitPin, bool inverse_logic /* = false */) :
+SoftwareSerial::SoftwareSerial(pin_size_t receivePin, pin_size_t transmitPin, bool inverse_logic /* = false */) :
   _receivePin(receivePin),
   _transmitPin(transmitPin),
   _receivePinPort(digitalPinToPort(receivePin)),
@@ -360,9 +357,9 @@ void SoftwareSerial::begin(long speed)
 void SoftwareSerial::end()
 {
   stopListening();
+  setSpeed(0);
 }
 
-// Read data from buffer
 int SoftwareSerial::read()
 {
   // Empty buffer?
@@ -409,6 +406,8 @@ void SoftwareSerial::flush()
   noInterrupts();
   _receive_buffer_head = _receive_buffer_tail = 0;
   interrupts();
+  // wait for previous transmit to complete
+  while (active_out);
 }
 
 int SoftwareSerial::peek()

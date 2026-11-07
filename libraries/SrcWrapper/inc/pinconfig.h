@@ -19,57 +19,62 @@
 #include "lock_resource.h"
 #include "stm32yyxx_ll_gpio.h"
 
+/**
+  * @brief Disconnect the debug pins (JTAG/SWD) so they can be used as GPIO.
+  * @param pin Pin name.
+  * @note Only acts on STM32F1xx; no-op on other families.
+  */
 static inline void pin_DisconnectDebug(PinName pin)
 {
 #ifdef STM32F1xx
   pinF1_DisconnectDebug(pin);
 #else
-  UNUSED(pin);
+  (void)pin;
 #endif /* STM32F1xx */
 }
 
+/**
+  * @brief Set the pull configuration of a GPIO pin.
+  * @param gpio GPIO port of the pin.
+  * @param ll_pin LL GPIO pin mask (see STM_LL_GPIO_PIN).
+  * @param pull_config LL_GPIO_PULL_NO, LL_GPIO_PULL_UP or LL_GPIO_PULL_DOWN.
+  * @note On STM32F1xx, a pin without pull is set to floating input.
+  *       On other series the GPIO hardware semaphore is taken during the update.
+  */
 static inline void pin_PullConfig(GPIO_TypeDef *gpio, uint32_t ll_pin, uint32_t pull_config)
 {
 #ifdef STM32F1xx
   uint32_t function = LL_GPIO_GetPinMode(gpio, ll_pin);
-#endif
-  hsem_lock(CFG_HW_GPIO_SEMID, HSEM_LOCK_DEFAULT_RETRY);
-  switch (pull_config) {
-    case GPIO_PULLUP:
-#ifdef STM32F1xx
-      if (function == LL_GPIO_MODE_FLOATING) {
-        LL_GPIO_SetPinMode(gpio, ll_pin, LL_GPIO_MODE_INPUT);
-      }
-#endif
-      LL_GPIO_SetPinPull(gpio, ll_pin, LL_GPIO_PULL_UP);
-      break;
-    case GPIO_PULLDOWN:
-#ifdef STM32F1xx
-      if (function == LL_GPIO_MODE_FLOATING) {
-        LL_GPIO_SetPinMode(gpio, ll_pin, LL_GPIO_MODE_INPUT);
-      }
-#endif
-      LL_GPIO_SetPinPull(gpio, ll_pin, LL_GPIO_PULL_DOWN);
-      break;
-    default:
-#ifdef STM32F1xx
-      /*  Input+NoPull = Floating for F1 family */
-      if (function == LL_GPIO_MODE_INPUT) {
-        LL_GPIO_SetPinMode(gpio, ll_pin, LL_GPIO_MODE_FLOATING);
-      }
-#else
-      LL_GPIO_SetPinPull(gpio, ll_pin, LL_GPIO_PULL_NO);
-#endif
-      break;
+  if (pull_config == LL_GPIO_PULL_NO) {
+    /*  Input+NoPull = Floating for F1 family */
+    if (function == LL_GPIO_MODE_INPUT) {
+      LL_GPIO_SetPinMode(gpio, ll_pin, LL_GPIO_MODE_FLOATING);
+    }
+  } else {
+    /*  Input+PullUp/PullDown = Input for F1 family */
+    if (function == LL_GPIO_MODE_FLOATING) {
+      LL_GPIO_SetPinMode(gpio, ll_pin, LL_GPIO_MODE_INPUT);
+    }
+    LL_GPIO_SetPinPull(gpio, ll_pin, pull_config);
   }
+#else
+  hsem_lock(CFG_HW_GPIO_SEMID, HSEM_LOCK_DEFAULT_RETRY);
+  LL_GPIO_SetPinPull(gpio, ll_pin, pull_config);
   hsem_unlock(CFG_HW_GPIO_SEMID);
+#endif
 }
 
+/**
+  * @brief Set the alternate function number of a GPIO pin.
+  * @param gpio GPIO port of the pin.
+  * @param pin Pin name.
+  * @param afnum Alternate function number (AFIO remap value on STM32F1xx).
+  */
 static inline void pin_SetAFPin(GPIO_TypeDef *gpio, PinName pin, uint32_t afnum)
 {
 #ifdef STM32F1xx
-  UNUSED(gpio);
-  UNUSED(pin);
+  (void)gpio;
+  (void)pin;
   pin_SetF1AFPin(afnum);
 #else
   uint32_t ll_pin  = STM_LL_GPIO_PIN(pin);

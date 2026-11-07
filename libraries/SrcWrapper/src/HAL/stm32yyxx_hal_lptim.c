@@ -2,7 +2,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
-#ifdef STM32F4xx
+#ifdef STM32C5xx
+  #include "stm32c5xx_hal_lptim.c"
+#elif STM32F4xx
   #include "stm32f4xx_hal_lptim.c"
 #elif STM32F7xx
   #include "stm32f7xx_hal_lptim.c"
@@ -24,6 +26,8 @@
   #include "stm32mp1xx_hal_lptim.c"
 #elif STM32U0xx
   #include "stm32u0xx_hal_lptim.c"
+#elif STM32U3xx
+  #include "stm32u3xx_hal_lptim.c"
 #elif STM32U5xx
   #include "stm32u5xx_hal_lptim.c"
 #elif STM32WBxx

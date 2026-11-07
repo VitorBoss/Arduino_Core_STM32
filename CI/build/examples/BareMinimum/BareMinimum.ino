@@ -3,8 +3,9 @@
  * It allows to test build of built-in libraries
  * and can not be executed.
  */
-
+#if defined(HAL_FLASH_MODULE_ENABLED)
 #include <EEPROM.h>
+#endif
 #ifndef STM32MP1xx
 #include <IWatchdog.h>
 #endif
@@ -14,6 +15,9 @@
 #include <SPI.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
+#if defined(I3C1_BASE) || defined(I3C2_BASE)
+  #include <I3C.h>
+#endif
 
 #include <CMSIS_DSP.h>
 /* ----------------------------------------------------------------------
@@ -61,7 +65,7 @@ arm_status status;
 #endif
 
 #ifndef Serial
-HardwareSerial Serial(PIN_SERIAL_RX, PIN_SERIAL_TX);
+Uart Serial(PIN_SERIAL_RX, PIN_SERIAL_TX);
 #endif
 
 #ifdef TIMER_SERVO
@@ -88,10 +92,11 @@ void setup() {
   }
   swSerial.end();
 
+#if defined(HAL_FLASH_MODULE_ENABLED)
   // EEPROM
   byte value = EEPROM.read(0x01);
   EEPROM.write(EEPROM.length() - 1, value);
-
+#endif
 #ifndef STM32MP1xx
   // IWDG
   if (!IWatchdog.isReset(true)) {
@@ -131,6 +136,20 @@ void setup() {
   Wire.endTransmission();
   Wire.requestFrom(2, 1);
   Wire.end();
+
+#if defined(I3C1_BASE) || defined(I3C2_BASE)
+  // I3C
+  I3C.setBusType(I3CBusType::Pure);
+  I3C.setMixedBusOpenDrainFrequency(1000000U);
+  I3C.begin(I3C_SDA, I3C_SCL, 1000000U, I3CBusType::Pure, 1000000U);
+  I3C.setClock(1000000U);
+
+  uint8_t i3cData = 0;
+  I3C.isI3CDeviceReady(0x30, 1, 1);
+  I3C.isI2CDeviceReady(0x48, 1, 1);
+  I3C.readReg(0x30, 0x00, i3cData, 1);
+  I3C.readReg(0x48, 0x00, i3cData, I3CTransferType::I2C, 1);
+#endif
 
   // CMSIS DSP
   float32_t diff;

@@ -17,10 +17,18 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+/**
+ * @file Arduino.h
+ * @brief Main include file of the Arduino core for STM32.
+ *
+ * Includes the Arduino API, the wiring extensions and the pins of the selected variant.
+ */
+
 #ifndef Arduino_h
 #define Arduino_h
 
 #ifndef GCC_VERSION
+/** GCC version encoded as major * 10000 + minor * 100 + patch level. */
 #define GCC_VERSION (__GNUC__ * 10000 \
                      + __GNUC_MINOR__ * 100 \
                      + __GNUC_PATCHLEVEL__)
@@ -33,23 +41,13 @@
   #include "SrcWrapper.h"
 #endif
 
+#include "api/ArduinoAPI.h"
 #include "wiring.h"
 
 /* sketch */
 
 #ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
-// Weak empty variant initialization function.
-// May be redefined by variant files.
-extern void initVariant() __attribute__((weak));
-
-extern void setup(void) ;
-extern void loop(void) ;
-
-void yield(void);
-#ifdef __cplusplus
-} // extern "C"
+  using namespace arduino;
 #endif // __cplusplus
 
 // Include pins variant

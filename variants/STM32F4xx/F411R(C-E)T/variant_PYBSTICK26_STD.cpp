@@ -57,7 +57,7 @@ const PinName digitalPin[] = {
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
   3,  // A0
   4,  // A1
   5,  // A2
@@ -74,6 +74,9 @@ const uint32_t analogInputPin[] = {
 extern "C" {
 #endif
 
+/**
+  * @brief System Clock Configuration
+  */
 WEAK void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {};

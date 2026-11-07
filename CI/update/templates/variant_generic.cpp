@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (c) 2020, STMicroelectronics
+ * Copyright (c) 2020-{{year}}, STMicroelectronics
  * All rights reserved.
  *
  * This software component is licensed by ST under BSD 3-Clause license,
@@ -26,7 +26,7 @@ const PinName digitalPin[] = {
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
 {% for analog_pin in analog_pins_list %}
 {% if not loop.last %}
   {{"%-3s // %-4s %s"|format("{},".format(analog_pin.val), "{},".format(analog_pin.ax), analog_pin.pyn)}}

@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import re
 import subprocess
@@ -19,12 +20,13 @@ from utils import (
     deleteFolder,
     execute_cmd,
     getRepoBranchName,
-    genSTM32List,
+    loadSTM32Series,
 )
 
 stm32_list = []  # series
+stm32_dict = OrderedDict()  # key: series, value: nx
 ignored_stm32_list = []  # series
-aggregate_serie_list = []  # series
+aggregate_series_list = []  # series
 mcu_list = []  # 'name'
 io_list = []  # 'PIN','name'
 alt_list = []  # 'PIN','name'
@@ -57,7 +59,10 @@ ospidata5_list = []  # ['PIN','name','OSPIDATA5', ['af']]
 ospidata6_list = []  # ['PIN','name','OSPIDATA6', ['af']]
 ospidata7_list = []  # ['PIN','name','OSPIDATA7', ['af']]
 xspisclk_list = []  # ['PIN','name','XSPISCLK', ['af']]
-xspissel_list = []  # ['PIN','name','XSPISSEL', ['af']]
+xspincs1_list = []  # ['PIN','name','XSPINCS1', ['af']]
+xspincs2_list = []  # ['PIN','name','XSPINCS2', ['af']]
+xspinclk_list = []  # ['PIN','name','XSPINCLK', ['af']]
+xspidqs_list = []  # ['PIN','name','XSPIDQS', ['af']]
 syswkup_list = []  # ['PIN','name','SYSWKUP']
 usb_list = []  # ['PIN','name','USB', ['af']]
 usb_otgfs_list = []  # ['PIN','name','USB', ['af']]
@@ -83,12 +88,42 @@ tim_inst_list = []  # TIMx instance
 usb_inst = {"usb": "", "otg_fs": "", "otg_hs": ""}
 mcu_family = ""
 mcu_refname = ""
+mcu_core = []
 mcu_flash = []
 mcu_ram = []
 legacy_hal = {
     "CAN": ["F0", "F1", "F2", "F3", "F4", "F7", "L4"],
     "ETH": ["F4", "F7", "H7"],
 }
+
+# Flash size encoding in not always present in the mcu file but it is generally
+# encoded as a single character (number or letter) which can be  mapped to the
+# actual flash size in bytes.
+flash_size_dict = {
+    "0": 1024,  # 1Kb
+    "1": 2048,  # 2Kb
+    "2": 4096,  # 4Kb
+    "3": 8192,  # 8Kb
+    "4": 16384,  # 16Kb
+    "5": 24576,  # 24Kb
+    "6": 32768,  # 32Kb
+    "7": 49152,  # 48Kb
+    "8": 65536,  # 64Kb
+    "9": 73728,  # 72Kb
+    "A": 98304,  # 96Kb
+    "B": 131072,  # 128Kb
+    "Z": 196608,  # 192Kb
+    "C": 262144,  # 256Kb
+    "D": 393216,  # 384Kb
+    "E": 524288,  # 512Kb
+    "F": 786432,  # 768Kb
+    "G": 1048576,  # 1Mb
+    "H": 1572864,  # 1.5Mb
+    "I": 2097152,  # 2Mb
+    "K": 3145728,  # 3Mb
+    "J": 4194304,  # 4Mb
+}
+
 # Cube information
 product_line_dict = {}
 svd_dict = {}  # 'name':'svd file'
@@ -100,6 +135,8 @@ end_array_fmt = """  {{NC,{0:{w1}}NP,{0:{w2}}0}}
 }};
 #endif
 """
+
+year = datetime.datetime.now().year
 
 # Choice is based on the fact Tone and Servo do not need output nor compare
 # capabilities, and thus select timer instance which have the less outputs/compare
@@ -161,6 +198,7 @@ def parse_mcu_file():
     del tim_inst_list[:]
     del mcu_ram[:]
     del mcu_flash[:]
+    del mcu_core[:]
     usb_inst["usb"] = ""
     usb_inst["otg_fs"] = ""
     usb_inst["otg_hs"] = ""
@@ -175,14 +213,49 @@ def parse_mcu_file():
 
     if mcu_family.endswith("+"):
         mcu_family = mcu_family[:-1]
+
+    # Generate only for specified pattern series or supported one
+    # Check if mcu_family is supported by the core
+    if (
+        mcu_family not in stm32_list
+        or args.series
+        and series_pattern.search(mcu_family) is None
+    ):
+        if mcu_family not in ignored_stm32_list and mcu_family not in stm32_list:
+            ignored_stm32_list.append(mcu_family)
+        xml_mcu.unlink()
+        return False
+
     mcu_refname = mcu_node.attributes["RefName"].value
+    core_node = mcu_node.getElementsByTagName("Core")
+    for f in core_node:
+        # Strip last non digit characters and extract the number
+        arm_core_ = re.sub(r"^A[Rr][Mm] Cortex-", "", f.firstChild.nodeValue).strip("+")
+        mcu_core_family = re.sub(r"\d+$", "", arm_core_)
+        mcu_core_digit = int(re.sub(r"^[ARM]", "", arm_core_))
+        mcu_core.append([mcu_core_family, mcu_core_digit])
 
     ram_node = mcu_node.getElementsByTagName("Ram")
     for f in ram_node:
         mcu_ram.append(int(f.firstChild.nodeValue) * 1024)
-    flash_node = mcu_node.getElementsByTagName("Flash")
-    for f in flash_node:
-        mcu_flash.append(int(f.firstChild.nodeValue) * 1024)
+    # Test if Flash size is present in the mcu file, if not get it from flash_size array
+    if not mcu_node.getElementsByTagName("Flash"):
+        # flash id is the character after the series name and the two next characters
+        # (e.g. STM32F103xB -> flash id is 'B')
+        flash_id = mcu_refname[len(mcu_family) + 3]
+        # flash_id = mcu_refname.split("x")[-1]
+        if flash_id in flash_size_dict:
+            mcu_flash.append(flash_size_dict[flash_id])
+        else:
+            print(
+                f"Warning: Flash size '{flash_id}' not found in dict for MCU {mcu_refname}."
+            )
+            print("Flash size set to 0.")
+            mcu_flash.append(0)
+    else:
+        flash_node = mcu_node.getElementsByTagName("Flash")
+        for f in flash_node:
+            mcu_flash.append(int(f.firstChild.nodeValue) * 1024)
 
     itemlist = xml_mcu.getElementsByTagName("IP")
     for s in itemlist:
@@ -195,14 +268,21 @@ def parse_mcu_file():
             if inst:
                 if "OTG" in inst.group(1):
                     if "FS" in inst.group(1):
-                        usb_inst["otg_fs"] = inst.group(1)
+                        if inst.group(1).endswith("FS1"):
+                            usb_inst["otg_fs"] = inst.group(1)[:-1]
+                        else:
+                            usb_inst["otg_fs"] = inst.group(1)
                     else:
-                        usb_inst["otg_hs"] = inst.group(1)
+                        if inst.group(1).endswith("HS1"):
+                            usb_inst["otg_hs"] = inst.group(1)[:-1]
+                        else:
+                            usb_inst["otg_hs"] = inst.group(1)
                 else:
                     usb_inst["usb"] = inst.group(1)
             else:
                 if gpiofile == "" and s.attributes["Name"].value == "GPIO":
                     gpiofile = s.attributes["Version"].value
+    return True
 
 
 def get_gpio_af_num(pintofind, iptofind):
@@ -358,9 +438,8 @@ def get_gpio_af_numF1_default(pintofind, iptofind):
     # return "AFIO_" + iptofind .split("_")[0] + "_DISABLE"
     ip = iptofind.split("_")[0]
     afio_default = "AFIO_NONE"
-    if pintofind in default_afio_f1:
-        if ip in default_afio_f1[pintofind]:
-            afio_default = default_afio_f1[pintofind][ip]
+    if pintofind in default_afio_f1 and ip in default_afio_f1[pintofind]:
+        afio_default = default_afio_f1[pintofind][ip]
     return afio_default
 
 
@@ -437,10 +516,13 @@ def store_pin(pin, name, dest_list):
 
 # Store ADC list
 def store_adc(pin, name, signal):
-    # Skip Negative input analog channels (INN)
+    # Skip Negative input analog channels (INN, INM)
     # Differential is currently not managed
-    if "IN" in signal and "INN" not in signal:
-        adclist.append([pin, name, signal])
+    # And skip PGA
+    if "IN" in signal:
+        skip_signal = re.search(r"IN[N|M]|PGA", signal)
+        if not skip_signal:
+            adclist.append([pin, name, signal])
 
 
 # Store DAC list
@@ -509,7 +591,7 @@ def store_eth(pin, name, signal):
     eth_list.append([pin, name, signal])
 
 
-# Store O/QSPI pins
+# Store O/Q/XSPI pins
 def store_xspi(pin, name, signal):
     if "_IO0" in signal:
         xspidata0_list.append([pin, name, signal])
@@ -527,18 +609,23 @@ def store_xspi(pin, name, signal):
         ospidata6_list.append([pin, name, signal])
     elif "_IO7" in signal:
         ospidata7_list.append([pin, name, signal])
+    elif "_NCLK" in signal:
+        xspinclk_list.append([pin, name, signal])
+    elif "_DQS" in signal:
+        xspidqs_list.append([pin, name, signal])
+    elif signal.endswith(("_NCS1", "_NCS", "_BK1_NCS")):
+        xspincs1_list.append([pin, name, signal])
+    elif signal.endswith(("_NCS2", "_BK2_NCS")):
+        xspincs2_list.append([pin, name, signal])
     elif "_CLK" in signal:
         xspisclk_list.append([pin, name, signal])
-    elif "_NCS" in signal:
-        xspissel_list.append([pin, name, signal])
 
 
 # Store SYS pins
 def store_sys(pin, name, signal):
-    if "_WKUP" in signal:
-        if not any(pin.replace("_C", "") in i for i in syswkup_list):
-            signal = signal.replace("PWR", "SYS")
-            syswkup_list.append([pin, name, signal])
+    if "_WKUP" in signal and not any(pin.replace("_C", "") in i for i in syswkup_list):
+        signal = signal.replace("PWR", "SYS")
+        syswkup_list.append([pin, name, signal])
 
 
 # Store USB pins
@@ -602,14 +689,15 @@ def adc_pinmap():
             inst += "1"  # single ADC for this product
         winst.append(len(inst))
         wpin.append(len(p[0]))
-        if "INN" in a[1]:
+        negative = re.search(r"IN[N|M]", a[1])
+        if negative:
             # Negative input analog channels
             inv = "1"
         else:
             # Positive input analog channels
             inv = "0"
         # chan
-        chan = re.sub(r"^IN[N|P]?|\D*$", "", a[1])
+        chan = re.sub(r"^V?IN[N|P|M]?|\D*$", "", a[1])
         if a[1].endswith("b"):
             mode = "STM_MODE_ANALOG_ADC_CHANNEL_BANK_B"
         else:
@@ -619,7 +707,7 @@ def adc_pinmap():
                 "pin": p[0],
                 "inst": inst,
                 "mode": mode,
-                "pull": "GPIO_NOPULL",
+                "pull": "LL_GPIO_PULL_NO",
                 "af": "0",
                 "chan": chan,
                 "inv": inv,
@@ -657,7 +745,7 @@ def dac_pinmap():
                 "pin": p[0],
                 "inst": "DAC" + inst,
                 "mode": mode,
-                "pull": "GPIO_NOPULL",
+                "pull": "LL_GPIO_PULL_NO",
                 "af": "0",
                 "chan": chan,
                 "inv": "0",
@@ -677,8 +765,8 @@ def dac_pinmap():
 
 def i2c_pinmap(lst):
     i2c_pins_list = []
-    winst = []
-    wpin = []
+    winst = [0]
+    wpin = [0]
     mode = "STM_MODE_AF_OD"
     if lst == i2csda_list:
         aname = "I2C_SDA"
@@ -695,7 +783,7 @@ def i2c_pinmap(lst):
                 "pin": p[0],
                 "inst": inst,
                 "mode": mode,
-                "pull": "GPIO_NOPULL",
+                "pull": "LL_GPIO_PULL_NO",
                 "af": p[3],
             }
         )
@@ -714,7 +802,7 @@ def i3c_pinmap(lst):
     i3c_pins_list = []
     winst = [0]
     wpin = [0]
-    mode = "STM_MODE_AF_OD"
+    mode = "STM_MODE_AF_PP"
     if lst == i3csda_list:
         aname = "I3C_SDA"
     else:
@@ -730,7 +818,7 @@ def i3c_pinmap(lst):
                 "pin": p[0],
                 "inst": inst,
                 "mode": mode,
-                "pull": "GPIO_NOPULL",
+                "pull": "LL_GPIO_PULL_NO",
                 "af": p[3],
             }
         )
@@ -769,7 +857,7 @@ def tim_pinmap():
                 "pin": p[0],
                 "inst": inst,
                 "mode": mode,
-                "pull": "GPIO_PULLUP",
+                "pull": "LL_GPIO_PULL_UP",
                 "af": p[3],
                 "chan": chan,
                 "inv": inv,
@@ -814,7 +902,7 @@ def uart_pinmap(lst):
                 "pin": p[0],
                 "inst": inst,
                 "mode": mode,
-                "pull": "GPIO_PULLUP",
+                "pull": "LL_GPIO_PULL_UP",
                 "af": p[3],
             }
         )
@@ -854,7 +942,7 @@ def spi_pinmap(lst):
                 "pin": p[0],
                 "inst": inst,
                 "mode": "STM_MODE_AF_PP",
-                "pull": "GPIO_PULLUP" if inst != "SUBGHZSPI" else "GPIO_NOPULL",
+                "pull": "LL_GPIO_PULL_UP" if inst != "SUBGHZSPI" else "LL_GPIO_PULL_NO",
                 "af": p[4],
             }
         )
@@ -897,7 +985,7 @@ def can_pinmap(lst):
                 "pin": p[0],
                 "inst": inst,
                 "mode": mode,
-                "pull": "GPIO_NOPULL",
+                "pull": "LL_GPIO_PULL_NO",
                 "af": p[3],
             }
         )
@@ -918,9 +1006,17 @@ def can_pinmap(lst):
 
 def eth_pinmap():
     eth_pins_list = []
+    seen_pins = {}
     wpin = [0]
     inst = "ETH"
     for p in eth_list:
+        pin = re.sub(r"_ALT\d+$", "", p[0])
+        key = (pin, p[1], p[3])
+        if key in seen_pins:
+            entry = eth_pins_list[seen_pins[key]]
+            if p[2] not in entry["cmt"].split(" | "):
+                entry["cmt"] += " | " + p[2]
+            continue
         # Note: Some pins are duplicated with only a different signal
         # Now considered as an ALTX pins even ifsame AF
         wpin.append(len(p[0]))
@@ -929,11 +1025,12 @@ def eth_pinmap():
                 "pin": p[0],
                 "inst": inst,
                 "mode": "STM_MODE_AF_PP",
-                "pull": "GPIO_PULLUP",
+                "pull": "LL_GPIO_PULL_UP",
                 "af": p[3],
                 "cmt": p[2],
             }
         )
+        seen_pins[key] = len(eth_pins_list) - 1
     return dict(
         name="ETHERNET",
         hal=(
@@ -955,11 +1052,14 @@ def xspi_pinmap(lst):
     wpin = [0]
     name = "QUADSPI"
     hal = "QSPI"
-    ospi_regex = r"OCTOSPI(?:M_P)?(\d).*"
+    xspi_regex = r"(OCTOSPI|XSPI)(?:M_P)?(\d).*"
 
     if xspidata0_list and "OCTOSPI" in xspidata0_list[0][2]:
         name = "OCTOSPI"
         hal = "OSPI"
+    elif xspidata0_list and "XSPI" in xspidata0_list[0][2]:
+        name = "XSPI"
+        hal = "XSPI"
     if lst == xspidata0_list:
         aname = f"{name}_DATA0"
     elif lst == xspidata1_list:
@@ -978,16 +1078,21 @@ def xspi_pinmap(lst):
         aname = f"{name}_DATA7"
     elif lst == xspisclk_list:
         aname = f"{name}_SCLK"
+    elif lst == xspinclk_list:
+        aname = f"{name}_NCLK"
+    elif lst == xspidqs_list:
+        aname = f"{name}_DQS"
+    elif lst == xspincs2_list:
+        aname = f"{name}_NCS2"
+    elif lst == xspincs1_list:
+        aname = f"{name}_NCS1"
     else:
-        aname = f"{name}_SSEL"
+        aname = f"{name}_NCS1"
     for p in lst:
         # 2nd element is the XXXXSPI_YYYY signal
-        instm = re.match(ospi_regex, p[2])
+        instm = re.match(xspi_regex, p[2])
         if instm:
-            if "1" in instm.group(1):
-                inst = "OCTOSPI1"
-            elif "2" in instm.group(1):
-                inst = "OCTOSPI2"
+            inst = f"{instm.group(1)}{instm.group(2)}"
         else:
             inst = "QUADSPI"
         winst.append(len(inst))
@@ -997,7 +1102,7 @@ def xspi_pinmap(lst):
                 "pin": p[0],
                 "inst": inst,
                 "mode": "STM_MODE_AF_PP",
-                "pull": "GPIO_PULLUP",
+                "pull": "LL_GPIO_PULL_UP",
                 "af": p[3],
                 "cmt": p[2],
             }
@@ -1016,50 +1121,43 @@ def xspi_pinmap(lst):
 def usb_pinmap(lst):
     usb_pins_list = []
     wpin = [0]
-    use_hs_in_fs = False
-    nb_loop = 1
 
     if lst == usb_otgfs_list:
         inst = usb_inst["otg_fs"]
+        pin_groups = [(lst, 0)]
     elif lst == usb_otghs_list:
         inst = usb_inst["otg_hs"]
-        nb_loop = 2
+        sof_pins = [p for p in lst if "SOF" in p[2]]
+        fs_pins = [p for p in lst if "SOF" not in p[2] and "ULPI" not in p[2]]
+        ulpi_pins = [p for p in lst if "ULPI" in p[2]]
+        pin_groups = [(sof_pins, 0)]
+        if fs_pins:
+            pin_groups.append((fs_pins, 1))
+        if ulpi_pins:
+            pin_groups.append((ulpi_pins, 2 if fs_pins else 0))
     else:
         inst = usb_inst["usb"]
-    for nb in range(nb_loop):
-        for p in lst:
-            hsinfs = 0
-            if lst == usb_otghs_list:
-                hsinfs = 3
-                if nb == 0:
-                    if "ULPI" in p[2]:
-                        continue
-                    elif not use_hs_in_fs:
-                        hsinfs = 1
-                        use_hs_in_fs = True
-                else:
-                    if "ULPI" not in p[2]:
-                        continue
-                    elif use_hs_in_fs:
-                        hsinfs = 2
-                        use_hs_in_fs = False
+        pin_groups = [(lst, 0)]
+
+    for pins, group_marker in pin_groups:
+        for pin_index, p in enumerate(pins):
+            hsinfs = group_marker if pin_index == 0 else 3
 
             # 2nd element is the USB_XXXX signal
             if not p[2].startswith("USB_D") and "VBUS" not in p[2]:
+                pull = "LL_GPIO_PULL_UP"
                 if "ID" not in p[2]:
                     mode = "STM_MODE_AF_PP"
-                    pull = "GPIO_PULLUP"
                 else:
                     # ID pin: AF_PP + PULLUP
                     mode = "STM_MODE_AF_OD"
-                    pull = "GPIO_PULLUP"
             else:
                 # USB_DM/DP and VBUS: INPUT/AF + NOPULL
                 if p[2].startswith("USB_D") and "NONE" not in p[3]:
                     mode = "STM_MODE_AF_PP"
                 else:
                     mode = "STM_MODE_INPUT"
-                pull = "GPIO_NOPULL"
+                pull = "LL_GPIO_PULL_NO"
             wpin.append(len(p[0]))
             usb_pins_list.append(
                 {
@@ -1077,6 +1175,7 @@ def usb_pinmap(lst):
         hal=["PCD", "HCD"],
         aname=inst,
         data="",
+        hsinfs=any(marker == 1 for _, marker in pin_groups),
         wpin=max(wpin) + 1,
         winst=len(inst) + 1,
         list=usb_pins_list,
@@ -1121,9 +1220,9 @@ def sdx_pinmap(lst):
         a = p[2].split("_")
         inst = a[0]
         if a[1].startswith("C") or a[1].endswith("DIR"):
-            pull = "GPIO_NOPULL"
+            pull = "LL_GPIO_PULL_NO"
         else:
-            pull = "GPIO_PULLUP"
+            pull = "LL_GPIO_PULL_UP"
         winst.append(len(inst))
         wpin.append(len(p[0]))
         sdx_pins_list.append(
@@ -1160,8 +1259,24 @@ def print_peripheral():
     else:
         usb_pinmmap = [usb_pinmap(usb_otghs_list)]
 
+    xspi_pinmaps = (
+        xspi_pinmap(xspidata0_list),
+        xspi_pinmap(xspidata1_list),
+        xspi_pinmap(xspidata2_list),
+        xspi_pinmap(xspidata3_list),
+        xspi_pinmap(ospidata4_list),
+        xspi_pinmap(ospidata5_list),
+        xspi_pinmap(ospidata6_list),
+        xspi_pinmap(ospidata7_list),
+        xspi_pinmap(xspisclk_list),
+        xspi_pinmap(xspincs1_list),
+        xspi_pinmap(xspincs2_list),
+    )
+    xspi_pinmaps += (xspi_pinmap(xspinclk_list), xspi_pinmap(xspidqs_list))
+
     periph_c_file.write(
         periph_c_template.render(
+            year=year,
             mcu_file=mcu_file.name,
             db_release=db_release,
             peripherals_list=(
@@ -1184,18 +1299,7 @@ def print_peripheral():
                 ),
                 (can_pinmap(canrd_list), can_pinmap(cantd_list)),
                 [eth_pinmap()],
-                (
-                    xspi_pinmap(xspidata0_list),
-                    xspi_pinmap(xspidata1_list),
-                    xspi_pinmap(xspidata2_list),
-                    xspi_pinmap(xspidata3_list),
-                    xspi_pinmap(ospidata4_list),
-                    xspi_pinmap(ospidata5_list),
-                    xspi_pinmap(ospidata6_list),
-                    xspi_pinmap(ospidata7_list),
-                    xspi_pinmap(xspisclk_list),
-                    xspi_pinmap(xspissel_list),
-                ),
+                xspi_pinmaps,
                 usb_pinmmap,
                 (
                     sdx_pinmap(sdxcmd_list),
@@ -1214,6 +1318,7 @@ def print_peripheral():
                     sdx_pinmap(sdmmcd123dir_list),
                 ),
             ),
+            halv2=False,
         )
     )
 
@@ -1221,14 +1326,20 @@ def print_peripheral():
 # PinNamesVar.h generation
 def manage_syswkup():
     if len(syswkup_list) != 0:
-        # Find the max range of SYS_WKUP
+        # Find the max range of SYS_WKUP.
+        # Ensure it is compatible with the current maximum range
+        # used by STM32LowPower.
         max_range = syswkup_list[-1][2].replace("SYS_WKUP", "")
-        max_range = int(max_range) if max_range else 1
+        max_range = int(max_range) if max_range else 8
         # F446 start from 0
         base_index = 1
         if syswkup_list[0][2].replace("SYS_WKUP", "") == "0":
             base_index = 0
             max_range += 1
+        # Ensure the max_range is at least 8
+        # as some mcu PWR_WAKEUP_PINx while not SYS_WKUPx
+        if max_range < 8:
+            max_range = 8
         syswkup_pins_list = [[] for _ in range(max_range)]
         for p in syswkup_list:
             num = p[2].replace("SYS_WKUP", "")
@@ -1245,6 +1356,29 @@ def manage_syswkup():
 
 
 def print_pinamevar():
+    # First check core version and search PWR_WAKEUP_*
+    syswkup_type = "PIN"
+    if "STM32WB0" in mcu_family:
+        syswkup_type = "PINNAME"
+    if mcu_core[0][1] == 33:
+        # Search in stm32{series}xx_hal_pwr.h WR_WAKEUP_
+        pwr_header_file_path = (
+            system_path
+            / "Drivers"
+            / f"{mcu_family}{nx}_HAL_Driver"
+            / "Inc"
+            / f"stm32{mcu_family.replace('STM32', '').lower()}{nx}_hal_pwr.h"
+        )
+        if not (pwr_header_file_path).exists():
+            print(f"Error: {pwr_header_file_path} not found!")
+            exit(1)
+        else:
+            with open(pwr_header_file_path, "r") as pwr_header_file:
+                for line in pwr_header_file:
+                    if "PWR_WAKEUP_LINE" in line:
+                        syswkup_type = "LINE"
+                        break
+
     # Print specific PinNames in header file
     pinvar_h_template = j2_env.get_template(pinvar_h_filename)
 
@@ -1281,6 +1415,7 @@ def print_pinamevar():
             remap_pins_list=remap_pins_list,
             waltpin=max(waltpin),
             alt_pins_list=alt_pins_list,
+            syswkup_type=syswkup_type,
             syswkup_pins_list=syswkup_pins_list,
             wusbpin=max(wusbpin),
             usb_pins_list=sorted_usb_pins_list,
@@ -1289,7 +1424,7 @@ def print_pinamevar():
     alt_syswkup_list = []
     for idx, syswkup_list in enumerate(syswkup_pins_list, start=1):
         if len(syswkup_list) > 1:
-            for idx2, lst in enumerate(syswkup_list[1:], start=1):
+            for idx2, _lst in enumerate(syswkup_list[1:], start=1):
                 alt_syswkup_list.append(f"{idx}_{idx2}")
     return alt_syswkup_list
 
@@ -1323,13 +1458,13 @@ def spi_pins_variant():
         for ss in spissel_list:
             ss_inst = ss[2].split("_", 1)[0]
             if mosi_inst == ss_inst:
-                if "PNUM_NOT_DEFINED" == ss_pin:
+                if ss_pin == "PNUM_NOT_DEFINED":
                     ss_pin = ss[0].replace("_", "", 1)
-                elif "PNUM_NOT_DEFINED" == ss1_pin:
+                elif ss1_pin == "PNUM_NOT_DEFINED":
                     ss1_pin = ss[0].replace("_", "", 1)
-                elif "PNUM_NOT_DEFINED" == ss2_pin:
+                elif ss2_pin == "PNUM_NOT_DEFINED":
                     ss2_pin = ss[0].replace("_", "", 1)
-                elif "PNUM_NOT_DEFINED" == ss3_pin:
+                elif ss3_pin == "PNUM_NOT_DEFINED":
                     ss3_pin = ss[0].replace("_", "", 1)
                     break
         break
@@ -1365,6 +1500,25 @@ def i2c_pins_variant():
     return dict(sda=sda_pin, scl=scl_pin)
 
 
+def i3c_pins_variant():
+    sda_pin = scl_pin = "PNUM_NOT_DEFINED"
+    # Iterate to find match instance if any
+    for sda in i3csda_list:
+        sda_inst = sda[2].split("_", 1)[0]
+        for scl in i3cscl_list:
+            scl_inst = scl[2].split("_", 1)[0]
+            if sda_inst == scl_inst:
+                sda_pin = sda[0].replace("_", "", 1)
+                scl_pin = scl[0].replace("_", "", 1)
+                break
+        else:
+            continue
+        break
+    else:
+        print("No I3C found!")
+    return dict(sda=sda_pin, scl=scl_pin)
+
+
 def serial_pins_variant():
     # Manage (LP)U(S)ART pins
     if uarttx_list:
@@ -1397,7 +1551,7 @@ def serial_pins_variant():
             print("No serial instance number found!")
             serialnum = "-1"
     else:
-        serialtx_pin = serialtx_pin = "PNUM_NOT_DEFINED"
+        serialtx_pin = "PNUM_NOT_DEFINED"
         serialnum = "-1"
         print("No serial found!")
     return dict(instance=serialnum, rx=serialrx_pin, tx=serialtx_pin)
@@ -1478,6 +1632,12 @@ def print_variant(generic_list, alt_syswkup_list):
     # I2C definition
     i2c_pins = i2c_pins_variant()
 
+    # I3C definition if any
+    if i3csda_list and i3cscl_list:
+        i3c_pins = i3c_pins_variant()
+    else:
+        i3c_pins = None
+
     # Serial definition
     serial = serial_pins_variant()
 
@@ -1547,9 +1707,13 @@ def print_variant(generic_list, alt_syswkup_list):
         hal_modules_list.append("DAC")
     if eth_list:
         hal_modules_list.append("ETH")
+    if i3csda_list and i3cscl_list:
+        hal_modules_list.append("I3C")
     if xspidata0_list:
         if "OCTOSPI" in xspidata0_list[0][2]:
             hal_modules_list.append("OSPI")
+        elif "XSPI" in xspidata0_list[0][2]:
+            hal_modules_list.append("XSPI")
         else:
             hal_modules_list.append("QSPI")
     if sdxcmd_list:
@@ -1557,6 +1721,7 @@ def print_variant(generic_list, alt_syswkup_list):
 
     variant_h_file.write(
         variant_h_template.render(
+            year=year,
             pins_number_list=pins_number_list,
             alt_pins_list=alt_pins_list,
             alt_syswkup_list=alt_syswkup_list,
@@ -1567,16 +1732,19 @@ def print_variant(generic_list, alt_syswkup_list):
             num_analog_inputs=len(analog_pins_list),
             spi_pins=spi_pins,
             i2c_pins=i2c_pins,
+            i3c_pins=i3c_pins,
             timer=timer,
             serial=serial,
             hal_modules_list=hal_modules_list,
             alias_list=alias_list,
             sdmmcNA_list=sdmmcNA_list,
+            halv2=False,
         )
     )
 
     variant_cpp_file.write(
         variant_cpp_template.render(
+            year=year,
             generic_list=generic_list,
             pinnames_list=pinnames_list,
             analog_pins_list=analog_pins_list,
@@ -1587,29 +1755,7 @@ def print_variant(generic_list, alt_syswkup_list):
 def search_product_line(valueline: str, extra: str) -> str:
     product_line = ""
     product_line_list = product_line_dict[mcu_family]
-    if not valueline.startswith("STM32MP1"):
-        for idx_pline, pline in enumerate(product_line_list):
-            vline = valueline
-            product_line = pline
-            # Remove the 'x' character from pline and
-            # the one at same index in the vline
-            while 1:
-                idx = pline.find("x")
-                if idx > 0:
-                    pline = pline.replace("x", "", 1)
-                    vline = vline[:idx] + vline[idx + 1 :]
-                else:
-                    break
-            if pline >= vline:
-                if extra and len(product_line_list) > idx_pline + 1:
-                    if product_line_list[idx_pline + 1] == (product_line + extra):
-                        # Look for the next product line if contains the extra
-                        product_line = product_line_list[idx_pline + 1]
-                break
-        else:
-            # In case of CMSIS device does not exist
-            product_line = ""
-    else:
+    if valueline.startswith("STM32MP1"):
         # previous
         # Unfortunately, MP1 does not follows the same naming rules
         for pline in product_line_dict[mcu_family]:
@@ -1630,11 +1776,69 @@ def search_product_line(valueline: str, extra: str) -> str:
         else:
             # In case of CMSIS device does not exist
             product_line = "STM32MP15xx"
+    elif valueline.startswith("STM32WL3"):
+        for idx_pline, pline in enumerate(product_line_list):
+            vline = valueline
+            # Add an 'x' at the end to match the length
+            # as startup file contains only one 'x' at the end
+            # STM32WL3xx -> STM32WL30K8
+            # STM32WL3Rx -> STM32WL3RK8
+            product_line = pline
+            pline = pline + "x"
+            # Remove the 'x' character from pline and
+            # the one at same index in the vline
+            while 1:
+                idx = pline.find("x")
+                if idx > 0:
+                    pline = pline.replace("x", "", 1)
+                    vline = vline[:idx] + vline[idx + 1 :]
+                else:
+                    break
+            # Exact match or generic name
+            if pline == vline or product_line == "STM32WL3xx":
+                if (
+                    extra
+                    and len(product_line_list) > idx_pline + 1
+                    and product_line_list[idx_pline + 1] == (product_line + extra)
+                ):
+                    # Look for the next product line if contains the extra
+                    product_line = product_line_list[idx_pline + 1]
+                break
+        else:
+            # In case of CMSIS device does not exist
+            product_line = ""
+        product_line = product_line.upper()
+    else:
+        for idx_pline, pline in enumerate(product_line_list):
+            vline = valueline
+            product_line = pline
+            if vline.startswith("STM32WB0"):
+                pline = pline + "xx"
+            # Remove the 'x' character from pline and
+            # the one at same index in the vline
+            while 1:
+                idx = pline.find("x")
+                if idx > 0:
+                    pline = pline.replace("x", "", 1)
+                    vline = vline[:idx] + vline[idx + 1 :]
+                else:
+                    break
+            if pline >= vline:
+                if (
+                    extra
+                    and len(product_line_list) > idx_pline + 1
+                    and product_line_list[idx_pline + 1] == (product_line + extra)
+                ):
+                    # Look for the next product line if contains the extra
+                    product_line = product_line_list[idx_pline + 1]
+                break
+        else:
+            # In case of CMSIS device does not exist
+            product_line = ""
     return product_line
 
 
 def parse_stm32targets():
-    global svd_dict
     xml_stm32targets = parse(str(stm32targets_file))
     mcu_nodes = xml_stm32targets.getElementsByTagName("mcu")
     for mcu_node in mcu_nodes:
@@ -1648,9 +1852,7 @@ def parse_stm32targets():
 
 
 def search_svdfile(mcu_name):
-    svd_file = ""
-    if mcu_name in svd_dict:
-        svd_file = svd_dict[mcu_name]
+    svd_file = svd_dict.get(mcu_name, "")
     return svd_file
 
 
@@ -1747,6 +1949,7 @@ def print_general_clock(generic_list):
     generic_clock_template = j2_env.get_template(generic_clock_filename)
     generic_clock_file.write(
         generic_clock_template.render(
+            year=year,
             generic_list=generic_list,
         )
     )
@@ -1804,7 +2007,10 @@ def sort_my_lists():
     ospidata6_list.sort(key=natural_sortkey)
     ospidata7_list.sort(key=natural_sortkey)
     xspisclk_list.sort(key=natural_sortkey)
-    xspissel_list.sort(key=natural_sortkey)
+    xspincs1_list.sort(key=natural_sortkey)
+    xspincs2_list.sort(key=natural_sortkey)
+    xspinclk_list.sort(key=natural_sortkey)
+    xspidqs_list.sort(key=natural_sortkey)
     syswkup_list.sort(key=natural_sortkey2)
     usb_list.sort(key=natural_sortkey)
     usb_otgfs_list.sort(key=natural_sortkey)
@@ -1857,7 +2063,10 @@ def clean_all_lists():
     del ospidata6_list[:]
     del ospidata7_list[:]
     del xspisclk_list[:]
-    del xspissel_list[:]
+    del xspincs1_list[:]
+    del xspincs2_list[:]
+    del xspinclk_list[:]
+    del xspidqs_list[:]
     del syswkup_list[:]
     del usb_list[:]
     del usb_otgfs_list[:]
@@ -1905,7 +2114,10 @@ def manage_af_and_alternate():
     add_af(ospidata6_list)
     add_af(ospidata7_list)
     add_af(xspisclk_list)
-    add_af(xspissel_list)
+    add_af(xspincs1_list)
+    add_af(xspincs2_list)
+    add_af(xspinclk_list)
+    add_af(xspidqs_list)
     add_af(usb_list)
     add_af(usb_otgfs_list)
     add_af(usb_otghs_list)
@@ -1953,7 +2165,10 @@ def manage_af_and_alternate():
     update_alternate(ospidata6_list)
     update_alternate(ospidata7_list)
     update_alternate(xspisclk_list)
-    update_alternate(xspissel_list)
+    update_alternate(xspincs1_list)
+    update_alternate(xspincs2_list)
+    update_alternate(xspinclk_list)
+    update_alternate(xspidqs_list)
     update_alternate(syswkup_list)
     update_alternate(usb_list)
     update_alternate(usb_otgfs_list)
@@ -2069,7 +2284,7 @@ def parse_pins():
                 elif re.match("^(LPU|US|U)ART", sig) is not None:
                     store_uart(pin, name, sig)
                 elif "SPI" in sig:
-                    if "QUADSPI" in sig or "OCTOSPI" in sig:
+                    if "QUADSPI" in sig or "OCTOSPI" in sig or "XSPI" in sig:
                         store_xspi(pin, name, sig)
                     else:
                         store_spi(pin, name, sig)
@@ -2090,7 +2305,7 @@ def keyflash(x):
     return x[0]
 
 
-def group_by_flash(group_base_list, glist, index_mcu_base):
+def group_by_flash(glist, index_mcu_base):
     expanded_dir_list = []
     group_flash_list = []
     new_mcu_dirname = ""
@@ -2133,7 +2348,7 @@ def group_by_flash(group_base_list, glist, index_mcu_base):
             new_mcu_dirname += key
         else:
             new_mcu_dirname += f"({key})"
-        # Handle package with ANPQX
+        # Handle package with AGNPQSXZ
         # One case not manage: [Tx, TxX, Yx]
         # Assuming it is not an issue to have non existing mcu
         # Ease parsing and shorten directory name
@@ -2141,15 +2356,19 @@ def group_by_flash(group_base_list, glist, index_mcu_base):
         ext_list = []
         for ppe in key_package_list:
             sub = mcu_PE_regex.search(ppe)
-            package_list.append(sub.group(1))
-            # Assert
-            if sub.group(2) != "x":
-                print(
-                    f"Package of {base_name}, ppe {ppe} info contains {sub.group(2)} instead of 'x'"
-                )
+            if not sub:
+                print(f"Package: {base_name}, ppe: {ppe} not recognized")
                 exit(1)
-            if sub.group(3):
-                ext_list.append(sub.group(3))
+            else:
+                package_list.append(sub.group(1))
+                # Assert
+                if sub.group(2) != "x":
+                    print(
+                        f"Package: {base_name}, ppe: {ppe} contains {sub.group(2)} instead of 'x'"
+                    )
+                    exit(1)
+                if sub.group(3):
+                    ext_list.append(sub.group(3))
         # Count each subpart
         pcounter = Counter(package_list)
         ecounter = Counter(ext_list)
@@ -2174,7 +2393,7 @@ def group_by_flash(group_base_list, glist, index_mcu_base):
     return new_mcu_dirname
 
 
-def merge_dir(out_temp_path, group_mcu_dir, mcu_family, periph_xml, variant_exp):
+def merge_dir(out_temp_path, group_mcu_dir, mcu_family_name, periph_xml, variant_exp):
     dirname_list = []
     new_mcu_dirname = ""
     # Working mcu directory
@@ -2182,11 +2401,11 @@ def merge_dir(out_temp_path, group_mcu_dir, mcu_family, periph_xml, variant_exp)
     # Merge if needed
     if len(group_mcu_dir) != 1:
         # Handle mcu name length dynamically
-        # Add 3 for extra information line, #pin and flash
-        index_mcu_base = (
-            len(mcu_family.name.removeprefix("STM32").removesuffix("xx")) + 3
+        # Add num for extra information line, #pin and flash
+        nx = stm32_dict[mcu_family_name.removeprefix("STM32")]
+        index_mcu_base = len(mcu_family_name.removeprefix("STM32").removesuffix(nx)) + (
+            3 if len(nx) == 2 else 2
         )
-
         # Extract only dir name
         for dir_name in group_mcu_dir:
             dirname_list.append(dir_name.stem)
@@ -2205,14 +2424,14 @@ def merge_dir(out_temp_path, group_mcu_dir, mcu_family, periph_xml, variant_exp)
                 new_mcu_dirname += f"{'_' if index != 0 else ''}{glist[0].strip('x')}"
             else:
                 # Group using flash info
-                gbf = group_by_flash(group_base_list, glist, index_mcu_base)
+                gbf = group_by_flash(glist, index_mcu_base)
                 new_mcu_dirname += f"{'_' if index != 0 else ''}{gbf}"
         del group_package_list[:]
         del group_flash_list[:]
         del group_base_list[:]
         del dirname_list[:]
 
-        new_mcu_dir = out_temp_path / mcu_family.name / new_mcu_dirname
+        new_mcu_dir = out_temp_path / f"{mcu_family_name}{nx}" / new_mcu_dirname
 
         board_entry = ""
         with open(mcu_dir / boards_entry_filename) as fp:
@@ -2223,7 +2442,7 @@ def merge_dir(out_temp_path, group_mcu_dir, mcu_family, periph_xml, variant_exp)
             # Save board entry
             skip = False
             with open(dir_name / boards_entry_filename) as fp:
-                for index, line in enumerate(fp):
+                for _index, line in enumerate(fp):
                     # Skip until next empty line (included)
                     if skip:
                         if line == "\n":
@@ -2304,12 +2523,13 @@ def aggregate_dir():
     mcu_dir2_files_list = []
 
     # Compare per family
-    for mcu_family_name in aggregate_serie_list:
-        mcu_family = out_temp_path / f"{mcu_family_name}xx"
-        out_family_path = root_dir / "variants" / mcu_family.name
+    for mcu_family_name in aggregate_series_list:
+        nx = stm32_dict[mcu_family_name.removeprefix("STM32")]
+        mcu_family_path = out_temp_path / f"{mcu_family_name}{nx}"
+        out_family_path = root_dir / "variants" / mcu_family_path.name
         # Get all mcu_dir
-        mcu_dirs = sorted(mcu_family.glob("*/"))
-        # Get original directory list of current serie STM32YYxx
+        mcu_dirs = sorted(mcu_family_path.glob("*/"))
+        # Get original directory list of current series STM32YYxx
         mcu_out_dirs_ori = sorted(out_family_path.glob("*/**"))
         mcu_out_dirs_up = []
         # Group mcu directories when only expressions and xml file name are different
@@ -2339,24 +2559,23 @@ def aggregate_dir():
                 periph_xml_tmp = []
                 variant_exp_tmp = []
                 for index2, fname in enumerate(mcu_dir1_files_list):
-                    with open(fname, "r") as f1:
-                        with open(mcu_dir2_files_list[index2], "r") as f2:
-                            diff = set(f1).symmetric_difference(f2)
-                            diff.discard("\n")
-                            if not diff or len(diff) == 2:
-                                if index2 == 0:
-                                    for line in diff:
-                                        periph_xml_tmp += periperalpins_regex.findall(
-                                            line
-                                        )
-                                elif index2 == 2:
-                                    for line in diff:
-                                        variant_exp_tmp += variant_regex.findall(line)
-                                continue
-                            else:
-                                # Not the same directory compare with the next one
-                                index += 1
-                                break
+                    with open(fname, "r") as f1, open(
+                        mcu_dir2_files_list[index2], "r"
+                    ) as f2:
+                        diff = set(f1).symmetric_difference(f2)
+                        diff.discard("\n")
+                        if not diff or len(diff) == 2:
+                            if index2 == 0:
+                                for line in diff:
+                                    periph_xml_tmp += periperalpins_regex.findall(line)
+                            elif index2 == 2:
+                                for line in diff:
+                                    variant_exp_tmp += variant_regex.findall(line)
+                            continue
+                        else:
+                            # Not the same directory compare with the next one
+                            index += 1
+                            break
                 # All files compared and matched
                 else:
                     # Concatenate lists without duplicate
@@ -2372,7 +2591,7 @@ def aggregate_dir():
 
             # Merge directories name and contents if needed
             mcu_dir = merge_dir(
-                out_temp_path, group_mcu_dir, mcu_family, periph_xml, variant_exp
+                out_temp_path, group_mcu_dir, mcu_family_name, periph_xml, variant_exp
             )
             # Move to variants/ folder
             out_path = out_family_path / mcu_dir.stem
@@ -2386,7 +2605,7 @@ def aggregate_dir():
                     fname.unlink()
                 else:
                     fname.replace(out_path / fname.name)
-            # Append updated directory to the list of current serie STM32YYxx
+            # Append updated directory to the list of current series STM32YYxx
             mcu_out_dirs_up.append(out_path)
             del group_mcu_dir[:]
             del mcu_dir1_files_list[:]
@@ -2395,7 +2614,7 @@ def aggregate_dir():
         if new_dirs:
             nb_new = len(new_dirs)
             dir_str = "directories" if nb_new > 1 else "directory"
-            print(f"\nNew {dir_str} for {mcu_family.name}:\n")
+            print(f"\nNew {dir_str} for {mcu_family_path.name}:\n")
             for d in new_dirs:
                 print(f"  - {d.name}")
             print("\n  --> Please, check if it is a new directory or a renamed one.")
@@ -2403,7 +2622,7 @@ def aggregate_dir():
         if old_dirs:
             nb_old = len(old_dirs)
             dir_str = "Directories" if nb_old > 1 else "Directory"
-            print(f"\n{dir_str} not updated for {mcu_family.name}:\n")
+            print(f"\n{dir_str} not updated for {mcu_family_path.name}:\n")
             for d in old_dirs:
                 # Check if ldsript.ld file exists in the folder
                 if not (d / "ldscript.ld").exists():
@@ -2411,8 +2630,7 @@ def aggregate_dir():
                     print(f"  - {d.name} (deleted)")
                 else:
                     print(f"  - {d.name}")
-            print(
-                """
+            print("""
   --> For each directory not deleted, it requires manual update as it was renamed:
     - Find new directory name.
     - Move custom boards definition files, if any.
@@ -2420,8 +2638,7 @@ def aggregate_dir():
     - Copy 'SystemClock_Config(void)' function to the new generic clock config file.
   --> Then remove it and update old path in boards.txt
      (for custom board(s) as well as generic ones).
-"""
-            )
+""")
         del mcu_out_dirs_ori[:]
         del mcu_out_dirs_up[:]
 
@@ -2453,10 +2670,11 @@ def checkConfig():
     default_cubemxdir()
     if config_filename.is_file():
         try:
-            config_file = open(config_filename, "r")
-            path_config = json.load(config_file)
-            config_file.close()
-
+            # config_file = open(config_filename, "r")
+            # path_config = json.load(config_file)
+            # config_file.close()
+            with open(config_filename, "r") as config_file:
+                path_config = json.load(config_file)
             if "REPO_LOCAL_PATH" not in path_config:
                 path_config["REPO_LOCAL_PATH"] = str(repo_local_path)
                 defaultConfig(config_filename, path_config)
@@ -2549,7 +2767,7 @@ root_dir = script_path.parents[1]
 system_path = root_dir / "system"
 templates_dir = script_path / "templates"
 mcu_family_dir = ""
-filtered_serie = ""
+filtered_series = ""
 periph_c_filename = "PeripheralPins.c"
 pinvar_h_filename = "PinNamesVar.h"
 config_filename = script_path / "update_config.json"
@@ -2564,13 +2782,12 @@ gh_url = "https://github.com/STMicroelectronics/STM32_open_pin_data"
 repo_name = gh_url.rsplit("/", 1)[-1]
 repo_path = repo_local_path / repo_name
 db_release = "Unknown"
-
+nx = "xx"
 checkConfig()
 
 # By default, generate for all mcu xml files description
 parser = argparse.ArgumentParser(
-    description=textwrap.dedent(
-        f"""
+    description=textwrap.dedent(f"""
 By default, generates:
  - {periph_c_filename},
  - {pinvar_h_filename},
@@ -2585,14 +2802,11 @@ It can be the one from STM32CubeMX directory if defined:
 or the one from GitHub:
 \t{gh_url}
 
-"""
-    ),
-    epilog=textwrap.dedent(
-        """\
+"""),
+    epilog=textwrap.dedent("""\
 After files generation, review them carefully and please report any issue to GitHub:
 \thttps://github.com/stm32duino/Arduino_Core_STM32/issues
-"""
-    ),
+"""),
     formatter_class=RawTextHelpFormatter,
 )
 group = parser.add_mutually_exclusive_group()
@@ -2605,19 +2819,17 @@ group.add_argument(
 
 group.add_argument(
     "-s",
-    "--serie",
+    "--series",
     metavar="pattern",
-    help="Generate all files for specified STM32 serie(s) pattern.",
+    help="Generate all files for specified STM32 series(s) pattern.",
 )
 
 parser.add_argument(
     "-c",
     "--cube",
-    help=textwrap.dedent(
-        f"""\
+    help=textwrap.dedent(f"""\
 Use STM32CubeMX internal database. Default use GitHub {repo_name} repository.
-"""
-    ),
+"""),
     action="store_true",
 )
 parser.add_argument(
@@ -2638,12 +2850,10 @@ if not args.cube:
         fallback = True
 if fallback or args.cube:
     if not (cubemxdir.is_dir()):
-        print(
-            f"""
+        print(f"""
 Cube Mx seems not to be installed or not at the specified location.
 
-Please check the value set for 'CUBEMX_DIRECTORY' in '{config_filename}' file."""
-        )
+Please check the value set for 'CUBEMX_DIRECTORY' in '{config_filename}' file.""")
         quit()
 
     dirMCU = cubemxdir / "db" / "mcu"
@@ -2672,9 +2882,9 @@ else:
     print(f"{stm32targets_file} does not exits!")
     exit(1)
 
-if args.serie:
-    serie = args.serie.upper()
-    serie_pattern = re.compile(rf"STM32({serie})$", re.IGNORECASE)
+if args.series:
+    series = args.series.upper()
+    series_pattern = re.compile(rf"STM32({series})$", re.IGNORECASE)
 # Get all xml files
 mcu_list = sorted(dirMCU.glob("STM32*.xml"))
 
@@ -2683,8 +2893,9 @@ if args.list:
     for f in mcu_list:
         print(f.name)
     quit()
+stm32_dict = loadSTM32Series(script_path, True, True)
+stm32_list = sorted([f"STM32{stm32}" for stm32 in stm32_dict.keys()])
 
-stm32_list = [f"STM32{stm32}" for stm32 in genSTM32List(system_path / "Drivers")]
 if not stm32_list:
     print(f"No STM32 series found in {system_path}/Drivers")
     quit()
@@ -2697,29 +2908,20 @@ j2_env = Environment(
 # Clean temporary dir
 deleteFolder(tmp_dir)
 
-pl_regex = re.compile(r"([AQ])$")
-package_regex = re.compile(r"[\w][\w]([ANPQSXZ])?$")
+pl_regex = re.compile(r"([AGNPQSXZ])$")
+package_regex = re.compile(r"[\w][\w]([AGNPQSXZ])?$")
 flash_group_regex = re.compile(r"(.*)\((.*)\)(.*)")
 
 for mcu_file in mcu_list:
     # Open input file
     xml_mcu = parse(str(mcu_file))
-    parse_mcu_file()
-    # Generate only for specified pattern series or supported one
-    # Check if mcu_family is supported by the core
-    if (
-        mcu_family not in stm32_list
-        or args.serie
-        and serie_pattern.search(mcu_family) is None
-    ):
-        if mcu_family not in ignored_stm32_list and mcu_family not in stm32_list:
-            ignored_stm32_list.append(mcu_family)
-        xml_mcu.unlink()
+    if parse_mcu_file() is False:
         continue
 
     # Add mcu family to the list of directory to aggregate
-    if mcu_family not in aggregate_serie_list:
-        aggregate_serie_list.append(mcu_family)
+    if mcu_family not in aggregate_series_list:
+        aggregate_series_list.append(mcu_family)
+    nx = stm32_dict[mcu_family.removeprefix("STM32")]
 
     print(f"Generating files for '{mcu_file.name}'...")
     if not gpiofile:
@@ -2727,7 +2929,7 @@ for mcu_file in mcu_list:
         quit()
     xml_gpio = parse(str(dirIP / f"GPIO-{gpiofile}_Modes.xml"))
 
-    mcu_family_dir = mcu_family + "xx"
+    mcu_family_dir = f"{mcu_family}{nx}"
     out_temp_path = tmp_dir / mcu_family_dir / mcu_file.stem.replace("STM32", "")
     periph_c_filepath = out_temp_path / periph_c_filename
     pinvar_h_filepath = out_temp_path / pinvar_h_filename
@@ -2737,21 +2939,21 @@ for mcu_file in mcu_list:
     generic_clock_filepath = out_temp_path / generic_clock_filename
     out_temp_path.mkdir(parents=True, exist_ok=True)
 
-    # open output file
-    periph_c_file = open(periph_c_filepath, "w", newline="\n")
-    pinvar_h_file = open(pinvar_h_filepath, "w", newline="\n")
-    variant_cpp_file = open(variant_cpp_filepath, "w", newline="\n")
-    variant_h_file = open(variant_h_filepath, "w", newline="\n")
-    boards_entry_file = open(boards_entry_filepath, "w", newline="\n")
-    generic_clock_file = open(generic_clock_filepath, "w", newline="\n")
     parse_pins()
     manage_af_and_alternate()
 
-    generic_list = print_boards_entry()
-    print_general_clock(generic_list)
-    print_peripheral()
-    alt_syswkup_list = print_pinamevar()
-    print_variant(generic_list, alt_syswkup_list)
+    with open(boards_entry_filepath, "w", newline="\n") as boards_entry_file:
+        generic_list = print_boards_entry()
+    with open(generic_clock_filepath, "w", newline="\n") as generic_clock_file:
+        print_general_clock(generic_list)
+    with open(periph_c_filepath, "w", newline="\n") as periph_c_file:
+        print_peripheral()
+    with open(pinvar_h_filepath, "w", newline="\n") as pinvar_h_file:
+        alt_syswkup_list = print_pinamevar()
+    with open(variant_cpp_filepath, "w", newline="\n") as variant_cpp_file, open(
+        variant_h_filepath, "w", newline="\n"
+    ) as variant_h_file:
+        print_variant(generic_list, alt_syswkup_list)
     del alt_syswkup_list[:]
     del generic_list[:]
     sum_io = len(io_list) + len(alt_list) + len(dualpad_list) + len(remap_list)
@@ -2768,12 +2970,6 @@ for mcu_file in mcu_list:
 
     clean_all_lists()
 
-    periph_c_file.close()
-    pinvar_h_file.close()
-    variant_h_file.close()
-    variant_cpp_file.close()
-    boards_entry_file.close()
-    generic_clock_file.close()
     xml_mcu.unlink()
     xml_gpio.unlink()
 
@@ -2781,9 +2977,9 @@ print("Aggregating all generated files...")
 periperalpins_regex = re.compile(r"\S+\.xml")
 variant_regex = re.compile(r"defined\(ARDUINO_GENERIC_[^\s&|]*\)")
 update_regex = re.compile(r"defined\(ARDUINO_GENERIC_.+\)")
-board_entry_regex = re.compile(r"(Gen.+\..+variant=STM32.+xx/)\S+")
+board_entry_regex = re.compile(r"(Gen.+\..+variant=STM32[^x]+xx?/)\S+")
 #                              P     T      E
-mcu_PE_regex = re.compile(r"([\w])([\w])([ANPQSXZ])?$")
+mcu_PE_regex = re.compile(r"([\w])([\w])([AGNPQSXZ])?$")
 aggregate_dir()
 
 # Clean temporary dir

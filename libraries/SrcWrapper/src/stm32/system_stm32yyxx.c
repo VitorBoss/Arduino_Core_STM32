@@ -1,5 +1,7 @@
 #ifdef STM32C0xx
   #include "system_stm32c0xx.c"
+#elif STM32C5xx
+  #include "system_stm32c5xx.c"
 #elif STM32F0xx
   #include "system_stm32f0xx.c"
 #elif STM32F1xx
@@ -32,12 +34,18 @@
   #include "system_stm32mp1xx.c"
 #elif STM32U0xx
   #include "system_stm32u0xx.c"
+#elif STM32U3xx
+  #include "system_stm32u3xx.c"
 #elif STM32U5xx
   #include "system_stm32u5xx.c"
+#elif STM32WB0x
+  #include "system_stm32wb0x.c"
 #elif STM32WBAxx
   #include "system_stm32wbaxx.c"
 #elif STM32WBxx
   #include "system_stm32wbxx.c"
+#elif STM32WL3x
+  #include "system_stm32wl3x.c"
 #elif STM32WLxx
   #include "system_stm32wlxx.c"
 #endif

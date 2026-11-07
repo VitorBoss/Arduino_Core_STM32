@@ -94,8 +94,7 @@ USBD_CDC_LineCodingTypeDef linecoding = {
 /**
   * @brief  USBD_CDC_Init
   *         Initializes the CDC media low layer
-  * @param  None
-  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
+  * @return Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t USBD_CDC_Init(void)
 {
@@ -111,8 +110,7 @@ static int8_t USBD_CDC_Init(void)
 /**
   * @brief  USBD_CDC_DeInit
   *         DeInitializes the CDC media low layer
-  * @param  None
-  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
+  * @return Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t USBD_CDC_DeInit(void)
 {
@@ -123,14 +121,14 @@ static int8_t USBD_CDC_DeInit(void)
 /**
   * @brief  USBD_CDC_Control
   *         Manage the CDC class requests
-  * @param  cmd: Command code
-  * @param  pbuf: Buffer containing command data (request parameters)
-  * @param  length: Number of data to be sent (in bytes)
-  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
+  * @param  cmd Command code
+  * @param  pbuf Buffer containing command data (request parameters)
+  * @param  length Number of data to be sent (in bytes)
+  * @return Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t USBD_CDC_Control(uint8_t cmd, uint8_t *pbuf, uint16_t length)
 {
-  UNUSED(length);
+  (void)length;
   switch (cmd) {
     case CDC_SEND_ENCAPSULATED_COMMAND:
 
@@ -223,9 +221,9 @@ static int8_t USBD_CDC_Control(uint8_t cmd, uint8_t *pbuf, uint16_t length)
   *         it will result in receiving more data while previous ones are still
   *         not sent.
   *
-  * @param  Buf: Buffer of data to be received
-  * @param  Len: Number of data received (in bytes)
-  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
+  * @param  Buf Buffer of data to be received
+  * @param  Len Number of data received (in bytes)
+  * @return Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t USBD_CDC_Receive(uint8_t *Buf, uint32_t *Len)
 {
@@ -235,15 +233,20 @@ static int8_t USBD_CDC_Receive(uint8_t *Buf, uint32_t *Len)
     dtr_toggling = 0;
   }
 #else
-  UNUSED(Buf);
+  (void)Buf;
 #endif
   /* It always contains required amount of free space for writing */
   CDC_ReceiveQueue_CommitBlock(&ReceiveQueue, (uint16_t)(*Len));
   receivePended = false;
-  /* If enough space in the queue for a full buffer then continue receive */
-  if (!CDC_resume_receive()) {
-    USBD_CDC_ClearBuffer(&hUSBD_Device_CDC);
-  }
+  /*
+   * If there is enough space in the queue for a full packet, continue receive.
+   * Else leave the OUT endpoint unarmed: it then NAKs and the host retries.
+   * USBSerial::read() and the readBytes() family call CDC_resume_receive()
+   * after dequeuing, so the endpoint is armed again with a valid block as soon
+   * as the sketch drains data. Arming it with a NULL buffer instead makes the
+   * low level driver copy the retried packet to address 0.
+   */
+  (void)CDC_resume_receive();
   return ((int8_t)USBD_OK);
 }
 
@@ -256,15 +259,16 @@ static int8_t USBD_CDC_Receive(uint8_t *Buf, uint32_t *Len)
   *         This function is IN transfer complete callback used to inform user that
   *         the submitted Data is successfully sent over USB.
   *
-  * @param  Buf: Buffer of data to be received
-  * @param  Len: Number of data received (in bytes)
-  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
+  * @param  Buf Buffer of data that was transmitted
+  * @param  Len Number of data transmitted (in bytes)
+  * @param  epnum Endpoint number
+  * @return Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t USBD_CDC_TransmitCplt(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 {
-  UNUSED(Buf);
-  UNUSED(Len);
-  UNUSED(epnum);
+  (void)Buf;
+  (void)Len;
+  (void)epnum;
   transmitStart = 0;
   CDC_TransmitQueue_CommitRead(&TransmitQueue);
   CDC_continue_transmit();
@@ -377,6 +381,27 @@ bool CDC_resume_receive(void)
 void CDC_enableDTR(bool enable)
 {
   CDC_DTR_enabled = enable;
+}
+
+// getter for CDC baudrate
+uint32_t CDC_getBaudrate()
+{
+  return linecoding.bitrate;
+}
+
+uint8_t  CDC_getStopBits(void)
+{
+  return linecoding.format;
+}
+
+uint8_t  CDC_getParity(void)
+{
+  return linecoding.paritytype;
+}
+
+uint8_t  CDC_getDataBits(void)
+{
+  return linecoding.datatype;
 }
 
 #endif /* USBD_USE_CDC */

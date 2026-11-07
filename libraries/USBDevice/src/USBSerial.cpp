@@ -30,20 +30,29 @@ extern __IO bool rtsState;
 USBSerial SerialUSB;
 void serialEventUSB() __attribute__((weak));
 
+// Write path: the sketch (main thread) is the only producer of
+// TransmitQueue; the USB IRQ only consumes it (CDC_continue_transmit), so
+// write() needs no lock.
+// Read path: the sketch is the only consumer of ReceiveQueue; every read calls
+// CDC_resume_receive() to re-arm the OUT endpoint once space has been freed.
+
 void USBSerial::begin(void)
 {
   CDC_init();
 }
 
-void USBSerial::begin(uint32_t /* baud_count */)
+void USBSerial::begin(uint32_t baud_count)
 {
   // uart config is ignored in USB-CDC
+  (void)baud_count;
   begin();
 }
 
-void USBSerial::begin(uint32_t /* baud_count */, uint8_t /* config */)
+void USBSerial::begin(uint32_t baud_count, uint8_t config)
 {
   // uart config is ignored in USB-CDC
+  (void)baud_count;
+  (void)config;
   begin();
 }
 
@@ -158,22 +167,26 @@ void USBSerial::flush(void)
 
 uint32_t USBSerial::baud()
 {
-  return 115200;
+  // return (virtual) CDC line setting coding
+  return CDC_getBaudrate();
 }
 
 uint8_t USBSerial::stopbits()
 {
-  return ONE_STOP_BIT;
+  // return (virtual) CDC line setting coding
+  return CDC_getStopBits();
 }
 
 uint8_t USBSerial::paritytype()
 {
-  return NO_PARITY;
+  // return (virtual) CDC line setting coding
+  return CDC_getParity();
 }
 
 uint8_t USBSerial::numbits()
 {
-  return 8;
+  // return (virtual) CDC line setting coding
+  return CDC_getDataBits();
 }
 
 void USBSerial::dtr(bool enable)

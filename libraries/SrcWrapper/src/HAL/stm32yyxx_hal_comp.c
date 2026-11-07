@@ -2,7 +2,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
-#ifdef STM32F0xx
+#ifdef STM32C5xx
+  #include "stm32c5xx_hal_comp.c"
+#elif STM32F0xx
   #include "stm32f0xx_hal_comp.c"
 #elif STM32F3xx
   #include "stm32f3xx_hal_comp.c"
@@ -24,6 +26,8 @@
   #include "stm32l5xx_hal_comp.c"
 #elif STM32U0xx
   #include "stm32u0xx_hal_comp.c"
+#elif STM32U3xx
+  #include "stm32u3xx_hal_comp.c"
 #elif STM32U5xx
   #include "stm32u5xx_hal_comp.c"
 #elif STM32WBxx
@@ -32,5 +36,7 @@
   #include "stm32wbaxx_hal_comp.c"
 #elif STM32WLxx
   #include "stm32wlxx_hal_comp.c"
+#elif STM32WL3x
+  #include "stm32wl3x_hal_comp.c"
 #endif
 #pragma GCC diagnostic pop

@@ -48,7 +48,7 @@ const PinName digitalPin[] = {
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
   4,  // A0
   5,  // A1
   6,  // A2
@@ -67,8 +67,6 @@ extern "C" {
 
 /**
   * @brief  System Clock Configuration
-  * @param  None
-  * @retval None
   */
 WEAK void SystemClock_Config(void)
 {
@@ -122,7 +120,9 @@ WEAK void SystemClock_Config(void)
   /* Initializes the peripherals clocks */
   /* RNG needs to be configured like in M0 core, i.e. with HSI48 */
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SMPS | RCC_PERIPHCLK_RFWAKEUP
-                                             | RCC_PERIPHCLK_RNG | RCC_PERIPHCLK_USB;
+                                             | RCC_PERIPHCLK_RNG | RCC_PERIPHCLK_USB
+                                             | RCC_PERIPHCLK_LPUART1;
+  PeriphClkInitStruct.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_HSI;
   PeriphClkInitStruct.RFWakeUpClockSelection = RCC_RFWKPCLKSOURCE_LSE;
   PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_HSI48;
   PeriphClkInitStruct.SmpsClockSelection = RCC_SMPSCLKSOURCE_HSE;

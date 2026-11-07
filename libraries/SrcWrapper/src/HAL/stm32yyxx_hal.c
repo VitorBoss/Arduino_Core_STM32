@@ -4,6 +4,8 @@
 
 #ifdef STM32C0xx
   #include "stm32c0xx_hal.c"
+#elif STM32C5xx
+  #include "stm32c5xx_hal.c"
 #elif STM32F0xx
   #include "stm32f0xx_hal.c"
 #elif STM32F1xx
@@ -22,8 +24,6 @@
   #include "stm32g4xx_hal.c"
 #elif STM32H5xx
   #include "stm32h5xx_hal.c"
-#elif STM32H5xx
-  #include "stm32h5xx_hal.c"
 #elif STM32H7xx
   #include "stm32h7xx_hal.c"
 #elif STM32L0xx
@@ -38,13 +38,19 @@
   #include "stm32mp1xx_hal.c"
 #elif STM32U0xx
   #include "stm32u0xx_hal.c"
+#elif STM32U3xx
+  #include "stm32u3xx_hal.c"
 #elif STM32U5xx
   #include "stm32u5xx_hal.c"
 #elif STM32WBxx
   #include "stm32wbxx_hal.c"
+#elif STM32WB0x
+  #include "stm32wb0x_hal.c"
 #elif STM32WBAxx
   #include "stm32wbaxx_hal.c"
 #elif STM32WLxx
   #include "stm32wlxx_hal.c"
+#elif STM32WL3x
+  #include "stm32wl3x_hal.c"
 #endif
 #pragma GCC diagnostic pop

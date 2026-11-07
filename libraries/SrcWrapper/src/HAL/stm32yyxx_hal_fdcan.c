@@ -4,6 +4,8 @@
 
 #ifdef STM32C0xx
   #include "stm32c0xx_hal_fdcan.c"
+#elif STM32C5xx
+  #include "stm32c5xx_hal_fdcan.c"
 #elif STM32G0xx
   #include "stm32g0xx_hal_fdcan.c"
 #elif STM32G4xx
@@ -16,6 +18,8 @@
   #include "stm32l5xx_hal_fdcan.c"
 #elif STM32MP1xx
   #include "stm32mp1xx_hal_fdcan.c"
+#elif STM32U3xx
+  #include "stm32u3xx_hal_fdcan.c"
 #elif STM32U5xx
   #include "stm32u5xx_hal_fdcan.c"
 #endif

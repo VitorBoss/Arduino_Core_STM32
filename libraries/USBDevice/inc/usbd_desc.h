@@ -26,9 +26,6 @@
 
   /* Exported types ------------------------------------------------------------*/
   /* Exported constants --------------------------------------------------------*/
-  #define  DEVICE_ID1                  (UID_BASE)
-  #define  DEVICE_ID2                  (UID_BASE + 0x4U)
-  #define  DEVICE_ID3                  (UID_BASE + 0x8U)
 
   /*
   * USB Billboard Class USER string desc Defines Template
@@ -56,6 +53,10 @@
 
   /* Exported macro ------------------------------------------------------------*/
   /* Exported functions ------------------------------------------------------- */
+  /**
+  * @brief USB device descriptors callbacks (device, strings, BOS) used by
+  *        the USB stack.
+  */
   extern USBD_DescriptorsTypeDef USBD_Desc;
 
 #endif /* USBCON */

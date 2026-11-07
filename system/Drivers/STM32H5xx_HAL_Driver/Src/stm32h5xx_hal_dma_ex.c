@@ -824,6 +824,12 @@ HAL_StatusTypeDef HAL_DMAEx_List_Start(DMA_HandleTypeDef *const hdma)
     return HAL_ERROR;
   }
 
+  /* Check the DMA Mode is not DMA_NORMAL */
+  if (hdma->Mode == DMA_NORMAL)
+  {
+    return HAL_ERROR;
+  }
+
   /* Check DMA channel state */
   dma_state = hdma->State;
   ccr_value = hdma->Instance->CCR & DMA_CCR_LSM;
@@ -882,6 +888,12 @@ HAL_StatusTypeDef HAL_DMAEx_List_Start_IT(DMA_HandleTypeDef *const hdma)
 
   /* Check the DMA peripheral handle and the linked-list queue parameters */
   if ((hdma == NULL) || (hdma->LinkedListQueue == NULL))
+  {
+    return HAL_ERROR;
+  }
+
+  /* Check the DMA Mode is not DMA_NORMAL */
+  if (hdma->Mode == DMA_NORMAL)
   {
     return HAL_ERROR;
   }
@@ -2924,7 +2936,7 @@ HAL_StatusTypeDef HAL_DMAEx_List_ConvertQToDynamic(DMA_QListTypeDef *const pQLis
   uint32_t cllr_offset;
   uint32_t currentnode_addr;
   DMA_NodeTypeDef context_node;
-  DMA_NodeInQInfoTypeDef node_info;
+  DMA_NodeInQInfoTypeDef node_info = {0U};
 
   /* Check the queue parameter */
   if (pQList == NULL)
@@ -3109,6 +3121,12 @@ HAL_StatusTypeDef HAL_DMAEx_List_LinkQ(DMA_HandleTypeDef *const hdma,
     return HAL_ERROR;
   }
 
+  /* Check the DMA Mode is not DMA_NORMAL */
+  if (hdma->Mode == DMA_NORMAL)
+  {
+    return HAL_ERROR;
+  }
+
   /* Get DMA state */
   state = hdma->State;
 
@@ -3189,6 +3207,12 @@ HAL_StatusTypeDef HAL_DMAEx_List_UnLinkQ(DMA_HandleTypeDef *const hdma)
     return HAL_ERROR;
   }
 
+  /* Check the DMA Mode is not DMA_NORMAL */
+  if (hdma->Mode == DMA_NORMAL)
+  {
+    return HAL_ERROR;
+  }
+
   /* Get DMA state */
   state = hdma->State;
 
@@ -3257,6 +3281,12 @@ HAL_StatusTypeDef HAL_DMAEx_ConfigDataHandling(DMA_HandleTypeDef *const hdma,
     return HAL_ERROR;
   }
 
+  /* Check the DMA Mode is DMA_NORMAL */
+  if (hdma->Mode != DMA_NORMAL)
+  {
+    return HAL_ERROR;
+  }
+
   /* Check the parameters */
   assert_param(IS_DMA_DATA_ALIGNMENT(pConfigDataHandling->DataAlignment));
   assert_param(IS_DMA_DATA_EXCHANGE(pConfigDataHandling->DataExchange));
@@ -3293,6 +3323,12 @@ HAL_StatusTypeDef HAL_DMAEx_ConfigTrigger(DMA_HandleTypeDef *const hdma,
 {
   /* Check the DMA peripheral handle and trigger parameters */
   if ((hdma == NULL) || (pConfigTrigger == NULL))
+  {
+    return HAL_ERROR;
+  }
+
+  /* Check the DMA Mode is DMA_NORMAL */
+  if (hdma->Mode != DMA_NORMAL)
   {
     return HAL_ERROR;
   }
@@ -3341,6 +3377,12 @@ HAL_StatusTypeDef HAL_DMAEx_ConfigRepeatBlock(DMA_HandleTypeDef *const hdma,
 
   /* Check the DMA peripheral handle and repeated block parameters */
   if ((hdma == NULL) || (pConfigRepeatBlock == NULL))
+  {
+    return HAL_ERROR;
+  }
+
+  /* Check the DMA Mode is DMA_NORMAL */
+  if (hdma->Mode != DMA_NORMAL)
   {
     return HAL_ERROR;
   }
@@ -4106,16 +4148,31 @@ static uint32_t DMA_List_CheckNodesBaseAddresses(DMA_NodeTypeDef const *const pN
   /* Check node 1 address */
   if ((uint32_t)pNode1 != 0U)
   {
+    /* Check addresses offset compatibility */
+    if (((uint32_t)pNode1 & 0xFFFFU) > 0xFFE0U)
+    {
+      return 1U;
+    }
     ref = (uint32_t)pNode1;
   }
   /* Check node 2 address */
   else if ((uint32_t)pNode2 != 0U)
   {
+    /* Check addresses offset compatibility */
+    if (((uint32_t)pNode2 & 0xFFFFU) > 0xFFE0U)
+    {
+      return 1U;
+    }
     ref = (uint32_t)pNode2;
   }
   /* Check node 3 address */
   else if ((uint32_t)pNode3 != 0U)
   {
+    /* Check addresses offset compatibility */
+    if (((uint32_t)pNode3 & 0xFFFFU) > 0xFFE0U)
+    {
+      return 1U;
+    }
     ref = (uint32_t)pNode3;
   }
   else
@@ -4467,7 +4524,7 @@ static void DMA_List_ConvertNodeToStatic(uint32_t ContextNodeAddr,
   uint32_t contextnode_reg_counter = 0U;
   uint32_t cllr_idx;
   uint32_t cllr_mask;
-  DMA_NodeTypeDef *context_node = (DMA_NodeTypeDef *)ContextNodeAddr;
+  const DMA_NodeTypeDef *context_node = (DMA_NodeTypeDef *)ContextNodeAddr;
   DMA_NodeTypeDef *current_node = (DMA_NodeTypeDef *)CurrentNodeAddr;
   uint32_t update_link[NODE_MAXIMUM_SIZE] = {DMA_CLLR_UT1, DMA_CLLR_UT2, DMA_CLLR_UB1, DMA_CLLR_USA,
                                              DMA_CLLR_UDA, DMA_CLLR_UT3, DMA_CLLR_UB2, DMA_CLLR_ULL

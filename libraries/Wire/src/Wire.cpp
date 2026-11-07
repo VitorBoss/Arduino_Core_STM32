@@ -33,7 +33,7 @@ static const uint8_t MASTER_ADDRESS = 0x01;
 
 // Constructors ////////////////////////////////////////////////////////////////
 
-TwoWire::TwoWire(uint32_t sda, uint32_t scl)
+TwoWire::TwoWire(pin_size_t sda, pin_size_t scl)
 {
   memset((void *)&_i2c, 0, sizeof(_i2c));
   _i2c.sda = digitalPinToPinName(sda);
@@ -45,10 +45,6 @@ TwoWire::TwoWire(uint32_t sda, uint32_t scl)
   rxBufferAllocated = 0;
 }
 
-/**
-  * @brief  TwoWire destructor
-  * @retval None
-  */
 TwoWire::~TwoWire()
 {
   end();
@@ -56,7 +52,7 @@ TwoWire::~TwoWire()
 
 // Public Methods //////////////////////////////////////////////////////////////
 
-void TwoWire::begin(uint32_t sda, uint32_t scl)
+void TwoWire::begin(pin_size_t sda, pin_size_t scl)
 {
   _i2c.sda = digitalPinToPinName(sda);
   _i2c.scl = digitalPinToPinName(scl);
@@ -84,17 +80,19 @@ void TwoWire::begin(uint8_t address, bool generalCall, bool NoStretchMode)
 
   ownAddress = address << 1;
 
-  _i2c.isMaster = (address == MASTER_ADDRESS) ? 1 : 0;
+  _i2c.isMaster = (address == MASTER_ADDRESS);
 
-  _i2c.generalCall = (generalCall == true) ? 1 : 0;
+  _i2c.generalCall = generalCall;
 
-  _i2c.NoStretchMode = (NoStretchMode == true) ? 1 : 0;
+  _i2c.NoStretchMode = NoStretchMode;
 
-  recoverBus(); // in case I2C bus (device) is stuck after a reset for example
+  if (_i2c.isMaster) {
+    recoverBus(); // in case I2C bus (device) is stuck after a reset for example
+  }
 
   i2c_init(&_i2c, 100000, ownAddress);
 
-  if (_i2c.isMaster == 0) {
+  if (!_i2c.isMaster) {
     // i2c_attachSlaveTxEvent(&_i2c, reinterpret_cast<void(*)(i2c_t*)>(&TwoWire::onRequestService));
     // i2c_attachSlaveRxEvent(&_i2c, reinterpret_cast<void(*)(i2c_t*, uint8_t*, int)>(&TwoWire::onReceiveService));
 
@@ -123,24 +121,34 @@ void TwoWire::end(void)
   rxBufferAllocated = 0;
 }
 
-void TwoWire::setClock(uint32_t frequency)
+void TwoWire::setClock(uint32_t freq)
 {
-  i2c_setTiming(&_i2c, frequency);
-  if (_i2c.isMaster == 0) {
+  i2c_setTiming(&_i2c, freq);
+  if (!_i2c.isMaster) {
     i2c_attachSlaveTxEvent(&_i2c, onRequestService);
     i2c_attachSlaveRxEvent(&_i2c, onReceiveService);
   }
 }
 
-uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop)
+size_t TwoWire::requestFrom(uint8_t address, size_t len, bool stopBit)
+{
+  return requestFrom(address, len, 0, 0, stopBit);
+}
+
+size_t TwoWire::requestFrom(uint8_t address, size_t len)
+{
+  return requestFrom(address, len, true);
+}
+
+size_t TwoWire::requestFrom(uint8_t address, size_t len, uint32_t iaddress, uint8_t isize, bool stopBit)
 {
 #if !defined(I2C_OTHER_FRAME)
-  UNUSED(sendStop);
+  (void)stopBit;
 #endif
-  uint8_t read = 0;
+  size_t read = 0;
 
-  if (_i2c.isMaster == 1) {
-    allocateRxBuffer(quantity);
+  if (_i2c.isMaster) {
+    allocateRxBuffer(len);
 
     if (isize > 0) {
       // send internal address; this mode allows sending a repeated start to access
@@ -163,15 +171,21 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddres
 
     // perform blocking read into buffer
 #if defined(I2C_OTHER_FRAME)
-    if (sendStop == 0) {
+    if (stopBit == false) {
       _i2c.handle.XferOptions = I2C_OTHER_FRAME ;
     } else {
       _i2c.handle.XferOptions = I2C_OTHER_AND_LAST_FRAME;
     }
 #endif
-
-    if (I2C_OK == i2c_master_read(&_i2c, address << 1, rxBuffer, quantity)) {
-      read = quantity;
+#if defined(USE_HALV2_DRIVER)
+    if (stopBit == false) {
+      _i2c.handle.xfer_opt = HAL_I2C_XFER_OTHER_FRAME ;
+    } else {
+      _i2c.handle.xfer_opt = HAL_I2C_XFER_OTHER_AND_LAST_FRAME;
+    }
+#endif
+    if (I2C_OK == i2c_master_read(&_i2c, address << 1, rxBuffer, (uint16_t)len)) {
+      read = len;
     }
 
     // set rx buffer iterator vars
@@ -180,31 +194,6 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddres
 
   }
   return read;
-}
-
-uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop)
-{
-  return requestFrom((uint8_t)address, (uint8_t)quantity, (uint32_t)0, (uint8_t)0, (uint8_t)sendStop);
-}
-
-uint8_t TwoWire::requestFrom(uint8_t address, size_t quantity, bool sendStop)
-{
-  return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t)sendStop);
-}
-
-uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity)
-{
-  return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t)true);
-}
-
-uint8_t TwoWire::requestFrom(int address, int quantity)
-{
-  return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t)true);
-}
-
-uint8_t TwoWire::requestFrom(int address, int quantity, int sendStop)
-{
-  return requestFrom((uint8_t)address, (uint8_t)quantity, (uint8_t)sendStop);
 }
 
 void TwoWire::beginTransmission(uint8_t address)
@@ -222,35 +211,29 @@ void TwoWire::beginTransmission(int address)
   beginTransmission((uint8_t)address);
 }
 
-//
-//  Originally, 'endTransmission' was an f(void) function.
-//  It has been modified to take one parameter indicating
-//  whether or not a STOP should be performed on the bus.
-//  Calling endTransmission(false) allows a sketch to
-//  perform a repeated start.
-//
-//  WARNING: Nothing in the library keeps track of whether
-//  the bus tenure has been properly ended with a STOP. It
-//  is very possible to leave the bus in a hung state if
-//  no call to endTransmission(true) is made. Some I2C
-//  devices will behave oddly if they do not see a STOP.
-//
-uint8_t TwoWire::endTransmission(uint8_t sendStop)
+uint8_t TwoWire::endTransmission(bool stopBit)
 {
 #if !defined(I2C_OTHER_FRAME)
-  UNUSED(sendStop);
+  (void)stopBit;
 #endif
   int8_t ret = 4;
   // check transfer options and store it in the I2C handle
 #if defined(I2C_OTHER_FRAME)
-  if (sendStop == 0) {
+  if (stopBit == false) {
     _i2c.handle.XferOptions = I2C_OTHER_FRAME ;
   } else {
     _i2c.handle.XferOptions = I2C_OTHER_AND_LAST_FRAME;
   }
 #endif
+#if defined(USE_HALV2_DRIVER)
+  if (stopBit == false) {
+    _i2c.handle.xfer_opt = HAL_I2C_XFER_OTHER_FRAME ;
+  } else {
+    _i2c.handle.xfer_opt = HAL_I2C_XFER_OTHER_AND_LAST_FRAME;
+  }
+#endif
 
-  if (_i2c.isMaster == 1) {
+  if (_i2c.isMaster) {
     // transmit buffer (blocking)
     switch (i2c_master_write(&_i2c, txAddress, txBuffer, txDataSize)) {
       case I2C_OK :
@@ -285,17 +268,11 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
   return ret;
 }
 
-//  This provides backwards compatibility with the original
-//  definition, and expected behaviour, of endTransmission
-//
 uint8_t TwoWire::endTransmission(void)
 {
-  return endTransmission((uint8_t)true);
+  return endTransmission(true);
 }
 
-// must be called in:
-// slave tx event callback
-// or after beginTransmission(address)
 size_t TwoWire::write(uint8_t data)
 {
   size_t ret = 1;
@@ -319,13 +296,6 @@ size_t TwoWire::write(uint8_t data)
   return ret;
 }
 
-/**
-  * @brief  This function must be called in slave Tx event callback or after
-  *         beginTransmission() and before endTransmission().
-  * @param  pdata: pointer to the buffer data
-  * @param  quantity: number of bytes to write
-  * @retval number of bytes ready to write.
-  */
 size_t TwoWire::write(const uint8_t *data, size_t quantity)
 {
   size_t ret = quantity;
@@ -351,17 +321,11 @@ size_t TwoWire::write(const uint8_t *data, size_t quantity)
   return ret;
 }
 
-// must be called in:
-// slave rx event callback
-// or after requestFrom(address, numBytes)
 int TwoWire::available(void)
 {
   return rxBufferLength - rxBufferIndex;
 }
 
-// must be called in:
-// slave rx event callback
-// or after requestFrom(address, numBytes)
 int TwoWire::read(void)
 {
   int value = -1;
@@ -381,9 +345,6 @@ int TwoWire::read(void)
   return value;
 }
 
-// must be called in:
-// slave rx event callback
-// or after requestFrom(address, numBytes)
 int TwoWire::peek(void)
 {
   int value = -1;
@@ -403,7 +364,6 @@ void TwoWire::flush(void)
   resetTxBuffer();
 }
 
-// behind the scenes function that is called when data is received
 void TwoWire::onReceiveService(i2c_t *obj)
 {
   uint8_t *inBytes = (uint8_t *) obj->i2cTxRxBuffer;
@@ -431,7 +391,6 @@ void TwoWire::onReceiveService(i2c_t *obj)
   }
 }
 
-// behind the scenes function that is called when data is requested
 void TwoWire::onRequestService(i2c_t *obj)
 {
   TwoWire *TW = (TwoWire *)(obj->__this);
@@ -446,23 +405,26 @@ void TwoWire::onRequestService(i2c_t *obj)
   }
 }
 
-// sets function called on slave write
 void TwoWire::onReceive(cb_function_receive_t function)
 {
   user_onReceive = function;
 }
 
-// sets function called on slave read
+void TwoWire::onReceive(void(*function)(int))
+{
+  user_onReceive = function;
+}
+
 void TwoWire::onRequest(cb_function_request_t function)
 {
   user_onRequest = function;
 }
 
-/**
-  * @brief  Allocate the Rx/Tx buffer to the requested length if needed
-  * @note   Minimum allocated size is BUFFER_LENGTH)
-  * @param  length: number of bytes to allocate
-  */
+void TwoWire::onRequest(void(*function)(void))
+{
+  user_onRequest = function;
+}
+
 void TwoWire::allocateRxBuffer(size_t length)
 {
   if (rxBufferAllocated < length) {
@@ -501,9 +463,6 @@ inline size_t TwoWire::allocateTxBuffer(size_t length)
   return ret;
 }
 
-/**
-  * @brief  Reset Rx/Tx buffer content to 0
-  */
 inline void TwoWire::resetRxBuffer(void)
 {
   if (rxBuffer != nullptr) {
@@ -518,9 +477,7 @@ inline void TwoWire::resetTxBuffer(void)
   }
 }
 
-// Send clear bus (clock pulse) sequence to recover bus.
-// Useful in case of bus stuck after a reset for example
-// a mix implementation of Clear Bus from
+// Implementation based on the clear bus sequence from
 // https://www.nxp.com/docs/en/user-guide/UM10204.pdf
 // https://bits4device.wordpress.com/2017/07/28/i2c-bus-recovery/
 void TwoWire::recoverBus(void)

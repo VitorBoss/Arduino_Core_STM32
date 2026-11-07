@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (c) 2020, STMicroelectronics
+ * Copyright (c) 2020-{{year}}, STMicroelectronics
  * All rights reserved.
  *
  * This software component is licensed by ST under BSD 3-Clause license,
@@ -15,9 +15,7 @@
 #include "pins_arduino.h"
 
 /**
-  * @brief  System Clock Configuration
-  * @param  None
-  * @retval None
+  * @brief System Clock Configuration
   */
 WEAK void SystemClock_Config(void)
 {

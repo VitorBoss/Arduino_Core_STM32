@@ -22,13 +22,12 @@
   ******************************************************************************
   * @attention
   *
-* <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2017 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
@@ -87,7 +86,7 @@
 /* #define VECT_TAB_BASE_ADDRESS 0x08000000 */
 
 /*!< Uncomment the following line if you need to relocate your vector Table
-     in Sram else user remap will be done by default in Flash. */
+     in Sram else user remap will be done in Flash. */
 /* #define VECT_TAB_SRAM */
 
 #ifndef VECT_TAB_OFFSET
@@ -158,8 +157,6 @@ const uint8_t APBPrescTable[8]  = {0, 0, 0, 0, 1, 2, 3, 4};
   * @brief  Setup the microcontroller system
   *         Initialize the FPU setting, vector table location and External memory
   *         configuration.
-  * @param  None
-  * @retval None
   */
 void SystemInit(void)
 {
@@ -229,13 +226,10 @@ void SystemInit(void)
   *
   *         - The result of this function could be not correct when using fractional
   *           value for HSE crystal.
-  *
-  * @param  None
-  * @retval None
   */
 void SystemCoreClockUpdate(void)
 {
-  uint32_t tmp = 0, pllvco = 0, pllp = 2, pllsource = 0, pllm = 2;
+  uint32_t tmp, pllvco, pllp, pllsource, pllm;
 
   /* Get SYSCLK source -------------------------------------------------------*/
   tmp = RCC->CFGR & RCC_CFGR_SWS;
@@ -289,8 +283,6 @@ void SystemCoreClockUpdate(void)
   *         Called in startup_stm32f4xx.s before jump to main.
   *         This function configures the external memories (SRAM/SDRAM)
   *         This SRAM/SDRAM will be used as program data memory (including heap and stack).
-  * @param  None
-  * @retval None
   */
 void SystemInit_ExtMemCtl(void)
 {
@@ -455,8 +447,6 @@ void SystemInit_ExtMemCtl(void)
   *         Called in startup_stm32f4xx.s before jump to main.
   *         This function configures the external memories (SRAM/SDRAM)
   *         This SRAM/SDRAM will be used as program data memory (including heap and stack).
-  * @param  None
-  * @retval None
   */
 void SystemInit_ExtMemCtl(void)
 {
@@ -761,4 +751,3 @@ void SystemInit_ExtMemCtl(void)
 /**
   * @}
   */
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

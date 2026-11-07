@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (c) 2020, STMicroelectronics
+ * Copyright (c) 2020-{{year}}, STMicroelectronics
  * All rights reserved.
  *
  * This software component is licensed by ST under BSD 3-Clause license,
@@ -12,7 +12,9 @@
  */
 /*
  * Automatically generated from {{mcu_file}}
+{% if db_release %}
  * CubeMX DB release {{db_release}}
+{% endif %}
  */
 #if !defined(CUSTOM_PERIPHERAL_PINS)
 #include "Arduino.h"
@@ -38,10 +40,21 @@
         {% endif %}
 
         {% if periph.hal is iterable and periph.hal is not string %}
+            {% if halv2 %}
+#if defined(USE_HAL_{{periph.hal[0]}}_MODULE) && (USE_HAL_{{periph.hal[0]}}_MODULE == 1U) ||\
+{% for hal in periph.hal[1:] %}
+    defined(USE_HAL_{{hal}}_MODULE) && (USE_HAL_{{hal}}_MODULE == 1U){% if not loop.last %} ||\{% endif %}
+{% endfor %}
+            {% else %}
 #if defined(HAL_{{periph.hal[0]}}_MODULE_ENABLED){% for hal in periph.hal[1:] %} || defined(HAL_{{hal}}_MODULE_ENABLED){% endfor %}
+            {% endif %}
 
         {% else %}
+            {% if halv2 %}
+#if defined(USE_HAL_{{periph.hal}}_MODULE) && (USE_HAL_{{periph.hal}}_MODULE == 1U)
+            {% else %}
 #ifdef HAL_{{periph.hal}}_MODULE_ENABLED
+            {% endif %}
         {% endif %}
 WEAK const PinMap PinMap_{{periph.aname}}[] = {
         {% for pm in periph.list %}
@@ -58,7 +71,7 @@ WEAK const PinMap PinMap_{{periph.aname}}[] = {
   {{"{"}}{{"%s %s"|format("{},".format(pm.pin).ljust(periph.wpin), "{},".format(pm.inst).ljust(periph.winst))}} STM_PIN_DATA({{pm.mode}}, {{pm.pull}}, {{pm.af}}){{"}"}},{{" // {}".format(pm.cmt) if pm.cmt}}
           {% endif %}
           {% if loop.last %}
-          {% if pm.hsinfs and pm.hsinfs == 3 %}
+          {% if periph.hsinfs %}
 #endif /* USE_USB_HS_IN_FS */
           {% endif %}
   {{"{"}}{{"%s %s"|format("{},".format("NC").ljust(periph.wpin), "{},".format("NP").ljust(periph.winst))}} 0{{"}"}}

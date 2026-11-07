@@ -11,7 +11,7 @@
 #include "usbd_cdc_if.h"
 #include "stm32yyxx_ll_system.h"
 
-#if !defined(USBD_REENUM_DISABLED)
+#if !defined(USBD_REENUM_DISABLED) && !defined(USE_HALV2_DRIVER)
 
 /*
  * Below, support for re-attaching to USB is handled. USB-attachment is
@@ -116,22 +116,11 @@
   #define USBD_DP_TRICK
 #endif
 
-/**
-  * @brief  Force to re-enumerate USB.
-  *
-  * This is intended to be called at startup by core code. It could be
-  * used at runtime, while USB is connected, to force re-enumeration
-  * too, but that does not work in all cases (when USB is enabled on an
-  * F103C8, setting output mode on the DP pin no longer has any effect).
-  *
-  * @param  None
-  * @retval None
-  */
 WEAK void USBD_reenumerate(void)
 {
 #if defined(USBD_PULLUP_CONTROL_PINNAME)
   /* Detach */
-  pin_function(USBD_PULLUP_CONTROL_PINNAME, STM_PIN_DATA(STM_MODE_OUTPUT_PP, GPIO_NOPULL, 0));
+  pin_function(USBD_PULLUP_CONTROL_PINNAME, STM_PIN_DATA(STM_MODE_OUTPUT_PP, LL_GPIO_PULL_NO, 0));
   digitalWriteFast(USBD_PULLUP_CONTROL_PINNAME, USBD_DETACH_LEVEL);
 
   /* Wait */
@@ -140,7 +129,7 @@ WEAK void USBD_reenumerate(void)
   /* Attach */
 #if defined(USBD_DP_TRICK)
   /* Revert back to input (floating), needed for the D+ trick */
-  pin_function(USBD_PULLUP_CONTROL_PINNAME, STM_PIN_DATA(STM_MODE_INPUT, GPIO_NOPULL, 0));
+  pin_function(USBD_PULLUP_CONTROL_PINNAME, STM_PIN_DATA(STM_MODE_INPUT, LL_GPIO_PULL_NO, 0));
 #else
   digitalWriteFast(USBD_PULLUP_CONTROL_PINNAME, USBD_ATTACH_LEVEL);
 #endif /* defined(USBD_PULLUP_CONTROL_FLOATING) */
@@ -176,14 +165,6 @@ void USBD_CDC_init(void)
 }
 #endif /* USBD_USE_CDC */
 
-/**
-  * @brief  Configures system clock and system IP clocks after wake-up from USB
-  *         resume callBack
-  * @note   Weaked function which can be redefined by user at the sketch level.
-  *         By default, calls 'SystemClock_Config()'.
-  * @param  None
-  * @retval None
-  */
 WEAK void USBD_SystemClockConfigFromResume(void)
 {
   configIPClock();

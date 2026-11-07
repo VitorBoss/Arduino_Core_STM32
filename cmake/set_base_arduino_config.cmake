@@ -22,9 +22,8 @@ target_link_libraries(base_config INTERFACE
 	gcc
 )
 target_compile_definitions(base_config INTERFACE
-	USE_HAL_DRIVER
-	USE_FULL_LL_DRIVER
 	ARDUINO_ARCH_STM32
+	EXTENDED_PIN_MODE
 )
 target_compile_options(base_config INTERFACE
   -mthumb
@@ -48,23 +47,24 @@ target_link_options(base_config INTERFACE
 	LINKER:--script=${BUILD_SYSTEM_PATH}/ldscript.ld
 )
 target_link_directories(base_config INTERFACE
-	"${CMSIS5_PATH}/CMSIS/DSP/Lib/GCC"
+	"${CMSIS6_PATH}/CMSIS/DSP/Lib/GCC"
 )
 
 target_include_directories(base_config INTERFACE
 	"${BUILD_CORE_PATH}"
 	"${BUILD_CORE_PATH}/avr"
 	"${BUILD_CORE_PATH}/stm32"
+	"${BUILD_CORE_PATH}/api/deprecated"
 	"${BUILD_LIB_PATH}/SrcWrapper/inc"
 	"${BUILD_LIB_PATH}/SrcWrapper/inc/LL"
 	"${BUILD_LIB_PATH}/USBDevice/inc"
 	"${BUILD_LIB_PATH}/VirtIO/inc"
 	"${BUILD_SYSTEM_PATH}/Middlewares/ST/STM32_USB_Device_Library/Core/Inc"
 	"${BUILD_SYSTEM_PATH}/Middlewares/ST/STM32_USB_Device_Library/Core/Src"
-	"${CMSIS5_PATH}/CMSIS/DSP/Include"
-	"${CMSIS5_PATH}/CMSIS/DSP/PrivateInclude"
-	"${CMSIS5_PATH}/CMSIS/Core/Include/"
-	"${CMSIS5_PATH}/CMSIS"
+	"${CMSIS_DSP_PATH}/Include"
+	"${CMSIS_DSP_PATH}/PrivateInclude"
+	"${CMSIS6_PATH}/CMSIS/Core/Include/"
+	"${CMSIS6_PATH}/CMSIS"
   "${BUILD_SYSTEM_PATH}/Middlewares/OpenAMP"
   "${BUILD_SYSTEM_PATH}/Middlewares/OpenAMP/open-amp/lib/include"
   "${BUILD_SYSTEM_PATH}/Middlewares/OpenAMP/libmetal/lib/include"

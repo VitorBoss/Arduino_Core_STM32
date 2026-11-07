@@ -1,3 +1,8 @@
+/**
+ * @file board.h
+ * @brief Aggregates the headers of the core and peripherals drivers (clock,
+ * analog, timer, uart, ...).
+ */
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
@@ -19,7 +24,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-void init(void) ;
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

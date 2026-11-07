@@ -41,6 +41,7 @@ extern "C" {
 #define HAL_MODULE_ENABLED
 #define HAL_ADC_MODULE_ENABLED
 #define HAL_CEC_MODULE_ENABLED
+#define HAL_CCB_MODULE_ENABLED
 #define HAL_COMP_MODULE_ENABLED
 #define HAL_CORDIC_MODULE_ENABLED
 #define HAL_CORTEX_MODULE_ENABLED
@@ -50,12 +51,14 @@ extern "C" {
 #define HAL_DCACHE_MODULE_ENABLED
 #define HAL_DCMI_MODULE_ENABLED
 #define HAL_DMA_MODULE_ENABLED
+#define HAL_DMA2D_MODULE_ENABLED
 #define HAL_DTS_MODULE_ENABLED
 #define HAL_EXTI_MODULE_ENABLED
 #define HAL_ETH_MODULE_ENABLED
 #define HAL_FDCAN_MODULE_ENABLED
 #define HAL_FLASH_MODULE_ENABLED
 #define HAL_FMAC_MODULE_ENABLED
+#define HAL_GFXTIM_MODULE_ENABLED
 #define HAL_GPIO_MODULE_ENABLED
 #define HAL_GTZC_MODULE_ENABLED
 #define HAL_HASH_MODULE_ENABLED
@@ -66,7 +69,10 @@ extern "C" {
 #define HAL_ICACHE_MODULE_ENABLED
 #define HAL_IRDA_MODULE_ENABLED
 #define HAL_IWDG_MODULE_ENABLED
+#define HAL_JPEG_MODULE_ENABLED
 #define HAL_LPTIM_MODULE_ENABLED
+#define HAL_LTDC_MODULE_ENABLED
+#define HAL_MDF_MODULE_ENABLED
 #define HAL_MMC_MODULE_ENABLED
 #define HAL_NAND_MODULE_ENABLED
 #define HAL_NOR_MODULE_ENABLED
@@ -74,6 +80,7 @@ extern "C" {
 #define HAL_OPAMP_MODULE_ENABLED
 #define HAL_PCD_MODULE_ENABLED
 #define HAL_PKA_MODULE_ENABLED
+#define HAL_PLAY_MODULE_ENABLED
 #define HAL_PSSI_MODULE_ENABLED
 #define HAL_PWR_MODULE_ENABLED
 #define HAL_RAMCFG_MODULE_ENABLED
@@ -82,6 +89,7 @@ extern "C" {
 #define HAL_RTC_MODULE_ENABLED
 #define HAL_SAI_MODULE_ENABLED
 #define HAL_SD_MODULE_ENABLED
+#define HAL_SDIO_MODULE_ENABLED
 #define HAL_SDRAM_MODULE_ENABLED
 #define HAL_SMARTCARD_MODULE_ENABLED
 #define HAL_SMBUS_MODULE_ENABLED
@@ -200,6 +208,14 @@ in voltage and temperature.*/
   */
 /* #define USE_FULL_ASSERT    1U */
 
+/* ############################################ Max IO function number for SDIO device ############################## */
+#if !defined(SDIO_MAX_IO_NUMBER)
+#define SDIO_MAX_IO_NUMBER          7U /*!< SDIO device support maximum IO number */
+#endif
+#if !defined(USE_SDIO_TRANSCEIVER)
+#define USE_SDIO_TRANSCEIVER        0U /*!< SDIO Transceiver                      */
+#endif
+
 /* ############################################ Register callback feature configuration ############################# */
 /**
   * @brief Set below the peripheral configuration  to "1U" to add the support
@@ -216,6 +232,9 @@ in voltage and temperature.*/
 #if !defined(USE_HAL_CEC_REGISTER_CALLBACKS)
 #define  USE_HAL_CEC_REGISTER_CALLBACKS       0U    /* CEC register callback disabled       */
 #endif
+#if !defined(USE_HAL_CCB_REGISTER_CALLBACKS)
+#define  USE_HAL_CCB_REGISTER_CALLBACKS       0U    /* CCB register callback disabled       */
+#endif
 #if !defined(USE_HAL_COMP_REGISTER_CALLBACKS)
 #define  USE_HAL_COMP_REGISTER_CALLBACKS      0U    /* COMP register callback disabled      */
 #endif
@@ -224,6 +243,9 @@ in voltage and temperature.*/
 #endif
 #if !defined(USE_HAL_CRYP_REGISTER_CALLBACKS)
 #define  USE_HAL_CRYP_REGISTER_CALLBACKS      0U    /* CRYP register callback disabled      */
+#endif
+#if !defined(USE_HAL_DMA2D_REGISTER_CALLBACKS)
+#define  USE_HAL_DMA2D_REGISTER_CALLBACKS     0U    /* DMA2D register callback disabled     */
 #endif
 #if !defined(USE_HAL_DAC_REGISTER_CALLBACKS)
 #define  USE_HAL_DAC_REGISTER_CALLBACKS       0U    /* DAC register callback disabled       */
@@ -242,6 +264,9 @@ in voltage and temperature.*/
 #endif
 #if !defined(USE_HAL_FMAC_REGISTER_CALLBACKS)
 #define  USE_HAL_FMAC_REGISTER_CALLBACKS      0U    /* FMAC register callback disabled      */
+#endif
+#if !defined(USE_HAL_GFXTIM_REGISTER_CALLBACKS)
+#define  USE_HAL_GFXTIM_REGISTER_CALLBACKS    0U    /* GFXTIM register callback disabled    */
 #endif
 #if !defined(USE_HAL_NOR_REGISTER_CALLBACKS)
 #define  USE_HAL_NOR_REGISTER_CALLBACKS       0U    /* NOR register callback disabled       */
@@ -267,8 +292,17 @@ in voltage and temperature.*/
 #if !defined(USE_HAL_IWDG_REGISTER_CALLBACKS)
 #define  USE_HAL_IWDG_REGISTER_CALLBACKS      0U    /* IWDG register callback disabled      */
 #endif
+#if !defined(USE_HAL_JPEG_REGISTER_CALLBACKS)
+#define  USE_HAL_JPEG_REGISTER_CALLBACKS      0U    /* JPEG register callback disabled      */
+#endif
 #if !defined(USE_HAL_LPTIM_REGISTER_CALLBACKS)
 #define  USE_HAL_LPTIM_REGISTER_CALLBACKS     0U    /* LPTIM register callback disabled     */
+#endif
+#if !defined(USE_HAL_LTDC_REGISTER_CALLBACKS)
+#define  USE_HAL_LTDC_REGISTER_CALLBACKS      0U    /* LTDC register callback disabled      */
+#endif
+#if !defined(USE_HAL_MDF_REGISTER_CALLBACKS)
+#define  USE_HAL_MDF_REGISTER_CALLBACKS       0U    /* MDF register callback disabled       */
 #endif
 #if !defined(USE_HAL_MMC_REGISTER_CALLBACKS)
 #define  USE_HAL_MMC_REGISTER_CALLBACKS       0U    /* MMC register callback disabled       */
@@ -288,6 +322,9 @@ in voltage and temperature.*/
 #if !defined(USE_HAL_PKA_REGISTER_CALLBACKS)
 #define  USE_HAL_PKA_REGISTER_CALLBACKS       0U    /* PKA register callback disabled       */
 #endif
+#if !defined(USE_HAL_PLAY_REGISTER_CALLBACKS)
+#define  USE_HAL_PLAY_REGISTER_CALLBACKS      0U    /* PLAY register callback disabled      */
+#endif
 #if !defined(USE_HAL_RAMCFG_REGISTER_CALLBACKS)
 #define  USE_HAL_RAMCFG_REGISTER_CALLBACKS    0U    /* RAMCFG register callback disabled    */
 #endif
@@ -302,6 +339,9 @@ in voltage and temperature.*/
 #endif
 #if !defined(USE_HAL_SD_REGISTER_CALLBACKS)
 #define  USE_HAL_SD_REGISTER_CALLBACKS        0U    /* SD register callback disabled        */
+#endif
+#if !defined(USE_HAL_SDIO_REGISTER_CALLBACKS)
+#define  USE_HAL_SDIO_REGISTER_CALLBACKS      0U    /* SDIO register callback disabled      */
 #endif
 #if !defined(USE_HAL_SDRAM_REGISTER_CALLBACKS)
 #define  USE_HAL_SDRAM_REGISTER_CALLBACKS     0U    /* SDRAM register callback disabled     */
@@ -340,8 +380,17 @@ in voltage and temperature.*/
  * Activated: CRC code is present inside driver
  * Deactivated: CRC code cleaned from driver
   */
-#define USE_SPI_CRC                   1U
+#if !defined(USE_SPI_CRC)
+#define USE_SPI_CRC                   0U
+#endif
 
+/* DMA2D COMMAND List Feature: Use to activate Command List feature inside HAL DMA2D Driver
+ * Activated (1): DMA2D COmmand list code is present inside driver
+ * Deactivated (0): DMA2D Direct Mode code is present inside driver
+  */
+#if !defined(USE_DMA2D_COMMAND_LIST_MODE)
+#define USE_DMA2D_COMMAND_LIST_MODE   0U
+#endif
 
 /* Includes ----------------------------------------------------------------------------------------------------------*/
 /**
@@ -351,6 +400,10 @@ in voltage and temperature.*/
 #ifdef HAL_RCC_MODULE_ENABLED
 #include "stm32h5xx_hal_rcc.h"
 #endif /* HAL_RCC_MODULE_ENABLED */
+
+#ifdef HAL_CCB_MODULE_ENABLED
+#include "stm32h5xx_hal_ccb.h"
+#endif /* HAL_CCB_MODULE_ENABLED */
 
 #ifdef HAL_GPIO_MODULE_ENABLED
 #include "stm32h5xx_hal_gpio.h"
@@ -371,6 +424,10 @@ in voltage and temperature.*/
 #ifdef HAL_DMA_MODULE_ENABLED
 #include "stm32h5xx_hal_dma.h"
 #endif /* HAL_DMA_MODULE_ENABLED */
+
+#ifdef HAL_DMA2D_MODULE_ENABLED
+#include "stm32h5xx_hal_dma2d.h"
+#endif /* HAL_DMA2D_MODULE_ENABLED */
 
 #ifdef HAL_DTS_MODULE_ENABLED
 #include "stm32h5xx_hal_dts.h"
@@ -404,6 +461,10 @@ in voltage and temperature.*/
 #include "stm32h5xx_hal_flash.h"
 #endif /* HAL_FLASH_MODULE_ENABLED */
 
+#ifdef HAL_GFXTIM_MODULE_ENABLED
+#include "stm32h5xx_hal_gfxtim.h"
+#endif /* HAL_GFXTIM_MODULE_ENABLED */
+
 #ifdef HAL_HASH_MODULE_ENABLED
 #include "stm32h5xx_hal_hash.h"
 #endif /* HAL_HASH_MODULE_ENABLED */
@@ -415,6 +476,10 @@ in voltage and temperature.*/
 #ifdef HAL_SDRAM_MODULE_ENABLED
 #include "stm32h5xx_hal_sdram.h"
 #endif /* HAL_SDRAM_MODULE_ENABLED */
+
+#ifdef HAL_MDF_MODULE_ENABLED
+#include "stm32h5xx_hal_mdf.h"
+#endif /* HAL_MDF_MODULE_ENABLED */
 
 #ifdef HAL_MMC_MODULE_ENABLED
 #include "stm32h5xx_hal_mmc.h"
@@ -444,9 +509,17 @@ in voltage and temperature.*/
 #include "stm32h5xx_hal_iwdg.h"
 #endif /* HAL_IWDG_MODULE_ENABLED */
 
+#ifdef HAL_JPEG_MODULE_ENABLED
+#include "stm32h5xx_hal_jpeg.h"
+#endif /* HAL_JPEG_MODULE_ENABLED */
+
 #ifdef HAL_LPTIM_MODULE_ENABLED
 #include "stm32h5xx_hal_lptim.h"
 #endif /* HAL_LPTIM_MODULE_ENABLED */
+
+#ifdef HAL_LTDC_MODULE_ENABLED
+#include "stm32h5xx_hal_ltdc.h"
+#endif /* HAL_LTDC_MODULE_ENABLED */
 
 #ifdef HAL_PWR_MODULE_ENABLED
 #include "stm32h5xx_hal_pwr.h"
@@ -471,6 +544,10 @@ in voltage and temperature.*/
 #ifdef HAL_SD_MODULE_ENABLED
 #include "stm32h5xx_hal_sd.h"
 #endif /* HAL_SD_MODULE_ENABLED */
+
+#ifdef HAL_SDIO_MODULE_ENABLED
+#include "stm32h5xx_hal_sdio.h"
+#endif /* HAL_SDIO_MODULE_ENABLED */
 
 #ifdef HAL_SMBUS_MODULE_ENABLED
 #include "stm32h5xx_hal_smbus.h"
@@ -560,18 +637,29 @@ in voltage and temperature.*/
 #include "stm32h5xx_hal_ramcfg.h"
 #endif /* HAL_RAMCFG_MODULE_ENABLED */
 
+#ifdef HAL_PLAY_MODULE_ENABLED
+#include "stm32h5xx_hal_play.h"
+#endif /* HAL_PLAY_MODULE_ENABLED */
+
 /* Exported macro ----------------------------------------------------------------------------------------------------*/
 #ifdef  USE_FULL_ASSERT
 /**
   * @brief  The assert_param macro is used for function's parameters check.
-  * @param  expr: If expr is false, it calls assert_failed function
+  * @param expr If expr is false, it calls assert_failed function
   *         which reports the name of the source file and the source
   *         line number of the call that failed.
   *         If expr is true, it returns no value.
-  * @retval None
   */
 #define assert_param(expr) ((expr) ? (void)0U : assert_failed((uint8_t *)__FILE__, __LINE__))
 /* Exported functions ----------------------------------------------------------------------------------------------- */
+/**
+  * @brief Reports the file and line of a failed assert_param() check.
+  *
+  * Called by assert_param() when USE_FULL_ASSERT is defined. The default
+  * implementation is weak and can be overridden by the application.
+  * @param file pointer to the source file name
+  * @param line source line number of the failed assert_param() check
+  */
 void assert_failed(uint8_t *file, uint32_t line);
 #else
 #define assert_param(expr) ((void)0U)

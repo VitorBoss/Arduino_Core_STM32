@@ -16,32 +16,109 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+/**
+ * @file wiring_time.c
+ * @brief Time functions: millis(), micros(), delay(), delayMicroseconds() and _gettimeofday().
+ */
+
 #include "Arduino.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-uint32_t millis(void)
+/**
+ * @brief Get the number of milliseconds since the board started.
+ *
+ * @note Interrupts are not disabled while the counter is read, see the ToDo in the implementation.
+ *
+ * @return Milliseconds since startup. Overflows after about 49 days.
+ */
+unsigned long millis(void)
 {
-  // ToDo: ensure no interrupts
+  // ToDo: ensure no interrupts while reading the counter
   return getCurrentMillis();
 }
 
-// Interrupt-compatible version of micros
-uint32_t micros(void)
+/**
+ * @brief Get the number of microseconds since the board started.
+ *
+ * Interrupt-compatible version.
+ *
+ * @return Microseconds since startup. Overflows after about 70 minutes.
+ */
+unsigned long micros(void)
 {
   return getCurrentMicros();
 }
 
-void delay(uint32_t ms)
+/**
+ * @brief Pause the program for the given number of milliseconds.
+ *
+ * Calls yield() while waiting, so cooperative threads can run.
+ *
+ * @param ms Number of milliseconds to pause.
+ */
+void delay(unsigned long ms)
 {
   if (ms != 0) {
-    uint32_t start = getCurrentMillis();
+    unsigned long start = getCurrentMillis();
     do {
       yield();
     } while (getCurrentMillis() - start < ms);
   }
+}
+
+/**
+ * @brief Pause the program for the amount of time (in microseconds) specified as parameter.
+ *
+ * @param us Number of microseconds to pause.
+ */
+void delayMicroseconds(unsigned int us)
+{
+#if defined(DWT_BASE) && !defined(DWT_DELAY_DISABLED)
+  // Busy wait on the DWT cycle counter
+  int32_t start  = dwt_getCycles();
+  int32_t cycles = us * (SystemCoreClock / 1000000);
+
+  while ((int32_t)dwt_getCycles() - start < cycles);
+#else
+  // Busy wait on the SysTick down counter, accumulating the elapsed ticks
+  __IO uint32_t currentTicks = SysTick->VAL;
+  /* Number of ticks per millisecond */
+  const uint32_t tickPerMs = SysTick->LOAD + 1;
+  /* Number of ticks to count */
+  const uint32_t nbTicks = ((us - ((us > 0) ? 1 : 0)) * tickPerMs) / 1000;
+  /* Number of elapsed ticks */
+  uint32_t elapsedTicks = 0;
+  __IO uint32_t oldTicks = currentTicks;
+  do {
+    currentTicks = SysTick->VAL;
+    elapsedTicks += (oldTicks < currentTicks) ? tickPerMs + oldTicks - currentTicks :
+                    oldTicks - currentTicks;
+    oldTicks = currentTicks;
+  } while (nbTicks > elapsedTicks);
+#endif
+}
+
+/**
+ * @brief Gives the number of seconds and microseconds since the Epoch.
+ *
+ * Based on milliseconds since last power on.
+ *
+ * @note The function is declared as weak to be overwritten in case of other
+ * implementations in user file (using RTC values for example).
+ *
+ * @param tv Argument is a struct timeval.
+ * @param tz Argument is a struct timezone (unused).
+ * @return 0, always.
+ */
+int __attribute__((weak)) _gettimeofday(struct timeval *tv, void *tz)
+{
+  (void)tz;
+  tv->tv_sec = getCurrentMillis() / 1000;
+  tv->tv_usec = getCurrentMicros() - (tv->tv_sec * 1000000);  // get remaining microseconds
+  return 0;
 }
 
 #ifdef __cplusplus

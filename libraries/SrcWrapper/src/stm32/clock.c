@@ -21,13 +21,10 @@
 extern "C" {
 #endif
 
-/**
-  * @brief  Function called to read the current micro second
-  * @param  None
-  * @retval None
-  */
 uint32_t getCurrentMicros(void)
 {
+  // Read the millisecond tick twice around the SysTick counter reading to
+  // detect a tick rollover between them, then add the elapsed fraction of the current tick
   uint32_t m0 = HAL_GetTick();
   __IO uint32_t u0 = SysTick->VAL;
   uint32_t m1 = HAL_GetTick();
@@ -41,41 +38,67 @@ uint32_t getCurrentMicros(void)
   }
 }
 
-/**
-  * @brief  Function called wto read the current millisecond
-  * @param  None
-  * @retval None
-  */
 uint32_t getCurrentMillis(void)
 {
   return HAL_GetTick();
 }
 
+/**
+  * @brief Default OS SysTick hook, does nothing
+  */
 void noOsSystickHandler()
 {
 
 }
 
-void osSystickHandler() __attribute__((weak, alias("noOsSystickHandler")));
 /**
-  * @brief  Function called when the tick interruption falls
-  * @param  None
-  * @retval None
+  * @brief Hook called from SysTick_Handler(), aliased to noOsSystickHandler()
+  *        unless an OS overrides it
+  */
+void osSystickHandler() __attribute__((weak, alias("noOsSystickHandler")));
+
+/**
+  * @brief SysTick interrupt handler: increment the HAL tick and call the OS hook
   */
 void SysTick_Handler(void)
 {
   HAL_IncTick();
+#if defined(USE_HALV2_DRIVER)
+  HAL_CORTEX_SYSTICK_IRQHandler();
+#else
   HAL_SYSTICK_IRQHandler();
+#endif
   osSystickHandler();
 }
 
-/**
-  * @brief  Enable the specified clock if not already set
-  * @param  source: clock source: LSE_CLOCK, LSI_CLOCK, HSI_CLOCK or HSE_CLOCK
-  * @retval None
-  */
 void enableClock(sourceClock_t source)
 {
+#if defined(USE_HALV2_DRIVER)
+  hal_status_t status;
+  enableBackupDomain();
+  switch (source) {
+    case LSI_CLOCK:
+      status = HAL_RCC_LSI_Enable();
+      break;
+    case HSI_CLOCK:
+      /* Compute divider should be done ? */
+      status = HAL_RCC_HSIK_Enable(HAL_RCC_HSIK_DIV1);
+      break;
+    case LSE_CLOCK:
+      status = HAL_RCC_LSE_Enable(HAL_RCC_LSE_ON, HAL_RCC_LSE_DRIVE_LOW);
+      break;
+    case HSE_CLOCK:
+      status = HAL_RCC_HSE_Enable(HAL_RCC_HSE_ON);
+      break;
+    default:
+      /* No valid clock to enable */
+      status = HAL_ERROR;
+      break;
+  }
+  if (status != HAL_OK) {
+    Error_Handler();
+  }
+#else
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
 #if defined(RCC_PLL_NONE)
 #if defined(STM32WBAxx)
@@ -121,14 +144,21 @@ void enableClock(sourceClock_t source)
 #endif
       break;
     case HSI_CLOCK:
+#if defined(__HAL_RCC_HSI_ENABLE)
       __HAL_RCC_HSI_ENABLE();
+#endif
+#if defined(__HAL_RCC_HSI_CONFIG)
+      __HAL_RCC_HSI_CONFIG(RCC_HSI_ON);
+#endif
       if (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIRDY) == RESET) {
         RCC_OscInitStruct.OscillatorType =  RCC_OSCILLATORTYPE_HSI;
         RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+#if !defined(STM32WB0x) && !defined(STM32WL3x)
 #if defined(STM32MP1xx)
         RCC_OscInitStruct.HSICalibrationValue = 0x00;
 #else
         RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+#endif
 #endif
       }
       break;
@@ -170,6 +200,7 @@ void enableClock(sourceClock_t source)
     }
     hsem_unlock(CFG_HW_RCC_SEMID);
   }
+#endif /* USE_HALV2_DRIVER */
 }
 
 void configHSECapacitorTuning(void)
@@ -184,11 +215,6 @@ void configHSECapacitorTuning(void)
 #endif
 }
 
-/**
-  * @brief  This function enables clocks for some system IP
-  * @param  None
-  * @retval None
-  */
 void configIPClock(void)
 {
 #ifdef HSEM_BASE

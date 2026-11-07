@@ -8,7 +8,9 @@
   #pragma GCC diagnostic ignored "-Wregister"
 #endif
 
-#ifdef STM32F2xx
+#ifdef STM32C5xx
+  #include "stm32c5xx_ll_rng.h"
+#elif STM32F2xx
   #include "stm32f2xx_ll_rng.h"
 #elif STM32F4xx
   #include "stm32f4xx_ll_rng.h"
@@ -30,14 +32,20 @@
   #include "stm32l5xx_ll_rng.h"
 #elif STM32U0xx
   #include "stm32u0xx_ll_rng.h"
+#elif STM32U3xx
+  #include "stm32u3xx_ll_rng.h"
 #elif STM32U5xx
   #include "stm32u5xx_ll_rng.h"
 #elif STM32WBxx
   #include "stm32wbxx_ll_rng.h"
+#elif STM32WB0x
+  #include "stm32wb0x_ll_rng.h"
 #elif STM32WBAxx
   #include "stm32wbaxx_ll_rng.h"
 #elif STM32WLxx
   #include "stm32wlxx_ll_rng.h"
+#elif STM32WL3x
+  #include "stm32wl3x_ll_rng.h"
 #endif
 #pragma GCC diagnostic pop
 #endif /* _STM32YYXX_LL_RNG_H_ */

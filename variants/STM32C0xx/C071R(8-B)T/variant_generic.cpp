@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (c) 2020, STMicroelectronics
+ * Copyright (c) 2020-2026, STMicroelectronics
  * All rights reserved.
  *
  * This software component is licensed by ST under BSD 3-Clause license,
@@ -75,11 +75,13 @@ const PinName digitalPin[] = {
   PF_0,   // D57
   PF_1,   // D58
   PF_2,   // D59
-  PF_3    // D60
+  PF_3,   // D60
+  PA_9_R, // D61
+  PA_10_R // D62
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
   0,  // A0,  PA0
   1,  // A1,  PA1
   2,  // A2,  PA2

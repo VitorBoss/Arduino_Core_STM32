@@ -8,6 +8,10 @@ on:
       - '!.github/workflows/Arduino-build.yml'
       - '*.json'
       - '**.md'
+      - docs/**
+      - doxygen/**
+      - mkdocs.yml
+      - requirements-docs.txt
       - keywords.txt
       - CI/**
       - '!CI/build/arduino-cli.py'
@@ -20,6 +24,10 @@ on:
       - '!.github/workflows/Arduino-build.yml'
       - '*.json'
       - '**.md'
+      - docs/**
+      - doxygen/**
+      - mkdocs.yml
+      - requirements-docs.txt
       - keywords.txt
       - CI/**
       - '!CI/build/arduino-cli.py'
@@ -35,7 +43,9 @@ jobs:
     steps:
     # First of all, clone the repo using the checkout action.
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@main
+      with:
+        submodules: true
 
     - name: Compilation
       id: Compile

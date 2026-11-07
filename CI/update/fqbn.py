@@ -5,12 +5,12 @@ import json
 import subprocess
 import argparse
 
-
 # List
 fqbn_list = []
 arduino_cli = ""
 arduino_cli_path = ""
-stm32_url = "https://github.com/stm32duino/BoardManagerFiles/raw/main/package_stmicroelectronics_index.json"
+file_index = "package_stmicroelectronics_index.json"
+stm32_url = f"https://github.com/stm32duino/BoardManagerFiles/raw/main/{file_index}"
 arduino_platform = "STMicroelectronics:stm32"
 
 # Parser
@@ -66,7 +66,7 @@ def get_fqbn_list():
     for fqbn in fqbn_list_tmp:
         try:
             output = subprocess.check_output(
-                [arduino_cli, "board", "details", "--format", "json", fqbn],
+                [arduino_cli, "board", "details", "--format", "json", "-b", fqbn],
                 stderr=subprocess.DEVNULL,
             ).decode("utf-8")
             board_detail = json.loads(output)
@@ -106,9 +106,8 @@ def main():
         arg_board_pattern = re.compile(args.board, re.IGNORECASE)
 
     for fqbn in fqbn_list:
-        if args.board:
-            if arg_board_pattern.search(fqbn) is None:
-                continue
+        if args.board and arg_board_pattern.search(fqbn) is None:
+            continue
         print(fqbn)
 
 

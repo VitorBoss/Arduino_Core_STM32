@@ -23,8 +23,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32_def.h"
-#include "stm32yyxx_ll_rtc.h"
 #include "stm32yyxx_ll_pwr.h"
+#include "stm32yyxx_ll_rtc.h"
+#include "stm32yyxx_ll_tamp.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,17 +38,22 @@ extern "C" {
 #define RTC_BKP_INDEX 0
 #endif
 #ifndef RTC_BKP_VALUE
+/** @brief Default value written in an RTC backup register */
 #define RTC_BKP_VALUE 0x32F2
 #endif
 
 #if defined (BL_HID)
 #if !defined(HID_MAGIC_NUMBER_BKP_INDEX)
+/** @brief Backup register holding the HID bootloader magic number */
 #define HID_MAGIC_NUMBER_BKP_INDEX LL_RTC_BKP_DR4
 #endif /* HID_MAGIC_NUMBER_BKP_INDEX */
 #if !defined(HID_OLD_MAGIC_NUMBER_BKP_INDEX) && defined(LL_RTC_BKP_DR10)
+/** @brief Backup register holding the magic number of the old HID bootloader */
 #define HID_OLD_MAGIC_NUMBER_BKP_INDEX LL_RTC_BKP_DR10
 #endif /* HID_OLD_MAGIC_NUMBER_BKP_INDEX */
 #ifndef HID_MAGIC_NUMBER_BKP_VALUE
+/** @brief Magic number written in the backup register to enter the HID
+ *         bootloader */
 #define HID_MAGIC_NUMBER_BKP_VALUE 0x424C
 #endif /* HID_MAGIC_NUMBER_BKP_VALUE */
 #endif /* BL_HID */
@@ -58,8 +64,17 @@ extern "C" {
 #endif
 
 /* Exported functions ------------------------------------------------------- */
+/**
+ * @brief Reset the backup domain (RTC and backup registers).
+ * @note  Backup domain write access is enabled as part of the reset.
+ */
 static inline void resetBackupDomain(void)
 {
+#if defined(USE_HALV2_DRIVER)
+  HAL_PWR_DisableRTCDomainWriteProtection();
+  HAL_RCC_ResetRTCDomain();
+  LL_RCC_EnableRTC();
+#else
 #if defined(PWR_ENABLE_BACKUP_ACCESS_EXIST)
   /*  Enable access to the RTC registers */
   HAL_PWR_EnableBkUpAccess();
@@ -69,12 +84,44 @@ static inline void resetBackupDomain(void)
     */
   HAL_PWR_EnableBkUpAccess();
 #endif
+#if defined(__HAL_RCC_BACKUPRESET_FORCE)
   __HAL_RCC_BACKUPRESET_FORCE();
   __HAL_RCC_BACKUPRESET_RELEASE();
+#endif
+#if defined(LL_APB0_GRP1_PERIPH_RTC)
+  LL_RCC_DisableRTC();
+  /* Wait until RTC is disabled */
+  while (LL_RCC_IsEnabledRTC());
+  LL_RCC_EnableRTC();
+#endif
+#endif
 }
 
+/**
+ * @brief Enable access to the backup domain and its clocks (RTC, backup
+ *        registers and SRAM).
+ */
 static inline void enableBackupDomain(void)
 {
+#if defined(USE_HALV2_DRIVER)
+  HAL_PWR_DisableRTCDomainWriteProtection();
+  HAL_RCC_RTCAPB_EnableClock();
+  if (!LL_RCC_IsEnabledRTC()) {
+    if (LL_RCC_LSE_IsEnabled()) {
+      LL_RCC_LSCO_SetSource(LL_RCC_LSCO_CLKSOURCE_LSE);
+    } else {
+      /* Configure the Low Speed Clock to LSI */
+      LL_RCC_LSCO_SetSource(LL_RCC_LSCO_CLKSOURCE_LSI);
+      if (!LL_RCC_LSI_IsEnabled()) {
+        /* Enable LSI */
+        LL_RCC_LSI_Enable();
+        /* Wait until LSI is ready */
+        while (!LL_RCC_LSI_IsReady());
+      }
+    }
+    LL_RCC_EnableRTC();
+  }
+#else
 #if defined(PWR_ENABLE_BACKUP_ACCESS_EXIST)
   /* Allow access to Backup domain */
   HAL_PWR_EnableBkUpAccess();
@@ -91,10 +138,36 @@ static inline void enableBackupDomain(void)
   /* Enable RTC CLK for TAMP backup registers */
   __HAL_RCC_RTCAPB_CLK_ENABLE();
 #endif
+#if defined(LL_APB0_GRP1_PERIPH_RTC)
+  if (!LL_RCC_IsEnabledRTC()) {
+    if (LL_RCC_LSE_IsEnabled()) {
+      LL_RCC_LSCO_SetSource(LL_RCC_LSCO_CLKSOURCE_LSE);
+    } else {
+      /* Configure the Low Speed Clock to LSI */
+      LL_RCC_LSCO_SetSource(LL_RCC_LSCO_CLKSOURCE_LSI);
+      if (!LL_RCC_LSI_IsEnabled()) {
+        /* Enable LSI */
+        LL_RCC_LSI_Enable();
+        /* Wait until LSI is ready */
+        while (!LL_RCC_LSI_IsReady());
+      }
+    }
+    LL_RCC_EnableRTC();
+  }
+#endif
+#endif /* USE_HALV2_DRIVER */
 }
 
+/**
+ * @brief Disable the backup domain clocks (RTC, backup registers and SRAM).
+ */
 static inline void disableBackupDomain(void)
 {
+#if defined(USE_HALV2_DRIVER)
+  HAL_PWR_EnableRTCDomainWriteProtection();
+  HAL_RCC_RTCAPB_DisableClock();
+  LL_RCC_DisableRTC();
+#else
 #if defined(PWR_ENABLE_BACKUP_ACCESS_EXIST)
   /* Forbid access to Backup domain */
   HAL_PWR_DisableBkUpAccess();
@@ -111,18 +184,30 @@ static inline void disableBackupDomain(void)
   /* Disable RTC CLK for TAMP backup registers */
   __HAL_RCC_RTCAPB_CLK_DISABLE();
 #endif
+#if defined(LL_APB0_GRP1_PERIPH_RTC)
+  LL_RCC_DisableRTC();
+#endif
+#endif /* USE_HALV2_DRIVER */
 }
 
+/**
+ * @brief Write a value in a backup register.
+ * @param index Backup register index.
+ * @param value Value to write.
+ * @note Does nothing if backup registers are not available.
+ */
 static inline void setBackupRegister(uint32_t index, uint32_t value)
 {
-#if defined(BKP_BASE)
+#if defined(USE_HALV2_DRIVER)
+  LL_TAMP_BKP_SetRegister(index, value);
+#elif defined(BKP_BASE)
   LL_RTC_BKP_SetRegister(BKP, index, value);
-#elif defined(RTC_BKP0R)
+#elif defined(RTC_BKP0R) || defined(RTC_BKP0R_BKP)
   LL_RTC_BAK_SetRegister(RTC, index, value);
 #elif defined(TAMP_BKP0R)
 #if defined(STM32G4xx) || defined(STM32H5xx) || defined(STM32L5xx) ||\
-    defined(STM32U5xx) || defined(STM32MP1xx) || defined(STM32WBAxx) ||\
-    defined(STM32WLxx)
+    defined(STM32U3xx) || defined(STM32U5xx) || defined(STM32MP1xx) || \
+    defined(STM32WBAxx) || defined(STM32WLxx)
   /* For those series this API requires RTC even if it is not used
      and TAMP is used instead */
   LL_RTC_BKP_SetRegister(RTC, index, value);
@@ -132,21 +217,29 @@ static inline void setBackupRegister(uint32_t index, uint32_t value)
 #elif defined(PWR_BKP0R)
   LL_PWR_BKP_SetRegister(index, value);
 #else
-  UNUSED(index);
-  UNUSED(value);
+  (void)index;
+  (void)value;
 #endif
 }
 
+/**
+ * @brief Read a value from a backup register.
+ * @param index Backup register index.
+ * @return The value stored in the backup register, or 0 if backup registers
+ *         are not available.
+ */
 static inline uint32_t getBackupRegister(uint32_t index)
 {
-#if defined(BKP_BASE)
+#if defined(USE_HALV2_DRIVER)
+  return LL_TAMP_BKP_GetRegister(index);
+#elif defined(BKP_BASE)
   return LL_RTC_BKP_GetRegister(BKP, index);
-#elif defined(RTC_BKP0R)
+#elif defined(RTC_BKP0R) || defined(RTC_BKP0R_BKP)
   return LL_RTC_BAK_GetRegister(RTC, index);
 #elif defined(TAMP_BKP0R)
 #if defined(STM32G4xx) || defined(STM32H5xx) || defined(STM32L5xx) ||\
-    defined(STM32U5xx) || defined(STM32MP1xx) || defined(STM32WBAxx) ||\
-    defined(STM32WLxx)
+    defined(STM32U3xx) || defined(STM32U5xx) || defined(STM32MP1xx) || \
+    defined(STM32WBAxx) || defined(STM32WLxx)
   /* For those series this API requires RTC even if it is not used
      and TAMP is used instead */
   return LL_RTC_BKP_GetRegister(RTC, index);
@@ -156,11 +249,18 @@ static inline uint32_t getBackupRegister(uint32_t index)
 #elif defined(PWR_BKP0R)
   return LL_PWR_BKP_GetRegister(index);
 #else
-  UNUSED(index);
+  (void)index;
   return 0;
 #endif
 }
 
+/**
+ * @brief Write 32-bit words to the backup SRAM.
+ * @param offset Offset, in 32-bit words, from the start of the backup SRAM.
+ * @param data Pointer to the data to write.
+ * @param length Number of 32-bit words to write.
+ * @note Does nothing if backup SRAM is not available.
+ */
 static inline void writeBackupSRAM(uint32_t offset, uint32_t *data, uint32_t length)
 {
 #if defined(BKPSRAM_BASE)
@@ -170,12 +270,19 @@ static inline void writeBackupSRAM(uint32_t offset, uint32_t *data, uint32_t len
     *(__IO uint32_t *)(BKPSRAM_BASE + (offset + i) * 4) = data[i];
   }
 #else
-  UNUSED(offset);
-  UNUSED(data);
-  UNUSED(length);
+  (void)offset;
+  (void)data;
+  (void)length;
 #endif
 }
 
+/**
+ * @brief Read 32-bit words from the backup SRAM.
+ * @param offset Offset, in 32-bit words, from the start of the backup SRAM.
+ * @param data Pointer to the buffer receiving the data.
+ * @param length Number of 32-bit words to read.
+ * @note Does nothing if backup SRAM is not available.
+ */
 static inline void readBackupSRAM(uint32_t offset, uint32_t *data, uint32_t length)
 {
 #if defined(BKPSRAM_BASE)
@@ -185,9 +292,9 @@ static inline void readBackupSRAM(uint32_t offset, uint32_t *data, uint32_t leng
     data[i] = *(__IO uint32_t *)(BKPSRAM_BASE + (offset + i) * 4);
   }
 #else
-  UNUSED(offset);
-  UNUSED(data);
-  UNUSED(length);
+  (void)offset;
+  (void)data;
+  (void)length;
 #endif
 }
 

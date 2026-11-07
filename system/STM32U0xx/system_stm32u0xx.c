@@ -155,8 +155,6 @@ const uint32_t MSIRangeTable[12] = {100000U,   200000U,   400000U,   800000U,  1
 
 /**
   * @brief  Setup the microcontroller system.
-  * @param  None
-  * @retval None
   */
 
 void SystemInit(void)
@@ -224,9 +222,6 @@ uint32_t tmp_optr;
   *
   *         - The result of this function could be not correct when using fractional
   *           value for HSE crystal.
-  *
-  * @param  None
-  * @retval None
   */
 void SystemCoreClockUpdate(void)
 {
@@ -309,7 +304,7 @@ void SystemCoreClockUpdate(void)
   }
   /* Compute HCLK clock frequency --------------------------------------------*/
   /* Get HCLK prescaler */
-  tmp = AHBPrescTable[((RCC->CFGR & RCC_CFGR_HPRE) >> 4U) & 0xFU];
+  tmp = AHBPrescTable[(((RCC->CFGR & RCC_CFGR_HPRE) >> RCC_CFGR_HPRE_Pos) & 0xFU)];
   /* HCLK clock frequency */
   SystemCoreClock >>= tmp;
 }

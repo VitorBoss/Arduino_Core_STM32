@@ -537,9 +537,15 @@ static void DMA_List_BuildNode(DMA_NodeConfTypeDef const *const pNodeConfig,
                                DMA_NodeTypeDef *const pNode);
 static void DMA_List_GetNodeConfig(DMA_NodeConfTypeDef *const pNodeConfig,
                                    DMA_NodeTypeDef const *const pNode);
+#if defined ( __GNUC__ ) && !defined (__CC_ARM)
+static __attribute__((noinline)) uint32_t DMA_List_CheckNodesBaseAddresses(DMA_NodeTypeDef const *const pNode1,  \
+                                                                           DMA_NodeTypeDef const *const pNode2,  \
+                                                                           DMA_NodeTypeDef const *const pNode3);
+#else
 static uint32_t DMA_List_CheckNodesBaseAddresses(DMA_NodeTypeDef const *const pNode1,
                                                  DMA_NodeTypeDef const *const pNode2,
                                                  DMA_NodeTypeDef const *const pNode3);
+#endif /* __GNUC__ && !__CC_ARM */
 static uint32_t DMA_List_CheckNodesTypes(DMA_NodeTypeDef const *const pNode1,
                                          DMA_NodeTypeDef const *const pNode2,
                                          DMA_NodeTypeDef const *const pNode3);
@@ -2924,7 +2930,7 @@ HAL_StatusTypeDef HAL_DMAEx_List_ConvertQToDynamic(DMA_QListTypeDef *const pQLis
   uint32_t cllr_offset;
   uint32_t currentnode_addr;
   DMA_NodeTypeDef context_node;
-  DMA_NodeInQInfoTypeDef node_info;
+  DMA_NodeInQInfoTypeDef node_info = {0U};
 
   /* Check the queue parameter */
   if (pQList == NULL)
@@ -3898,7 +3904,6 @@ static void DMA_List_BuildNode(DMA_NodeConfTypeDef const *const pNodeConfig,
     }
     /********************************************************************************* CBR2 register value is updated */
 
-
     /* Update CLLR register value *************************************************************************************/
     /* Reset CLLR Register value : channel linked-list address register offset */
     pNode->LinkRegisters[NODE_CLLR_2D_DEFAULT_OFFSET] = 0U;
@@ -4095,9 +4100,15 @@ static void DMA_List_GetNodeConfig(DMA_NodeConfTypeDef *const pNodeConfig,
   * @param  pNode3 : Pointer to a DMA_NodeTypeDef structure that contains linked-list node 3 registers configurations.
   * @retval Return 0 when nodes addresses are compatible, 1 otherwise.
   */
+#if defined ( __GNUC__ ) && !defined (__CC_ARM)
+static __attribute__((noinline)) uint32_t DMA_List_CheckNodesBaseAddresses(DMA_NodeTypeDef const *const pNode1,  \
+                                                                           DMA_NodeTypeDef const *const pNode2,  \
+                                                                           DMA_NodeTypeDef const *const pNode3)
+#else
 static uint32_t DMA_List_CheckNodesBaseAddresses(DMA_NodeTypeDef const *const pNode1,
                                                  DMA_NodeTypeDef const *const pNode2,
                                                  DMA_NodeTypeDef const *const pNode3)
+#endif /* __GNUC__ && !__CC_ARM */
 {
   uint32_t temp = (((uint32_t)pNode1 | (uint32_t)pNode2 | (uint32_t)pNode3) & DMA_CLBAR_LBA);
   uint32_t ref  = 0U;
@@ -4466,7 +4477,7 @@ static void DMA_List_ConvertNodeToStatic(uint32_t ContextNodeAddr,
   uint32_t contextnode_reg_counter = 0U;
   uint32_t cllr_idx;
   uint32_t cllr_mask;
-  DMA_NodeTypeDef *context_node = (DMA_NodeTypeDef *)ContextNodeAddr;
+  const DMA_NodeTypeDef *context_node = (DMA_NodeTypeDef *)ContextNodeAddr;
   DMA_NodeTypeDef *current_node = (DMA_NodeTypeDef *)CurrentNodeAddr;
   uint32_t update_link[NODE_MAXIMUM_SIZE] = {DMA_CLLR_UT1, DMA_CLLR_UT2, DMA_CLLR_UB1, DMA_CLLR_USA,
                                              DMA_CLLR_UDA, DMA_CLLR_UT3, DMA_CLLR_UB2, DMA_CLLR_ULL

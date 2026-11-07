@@ -1,7 +1,11 @@
+/**
+ * @file stm32_def_build.h
+ * @brief Selects the CMSIS startup file (CMSIS_STARTUP_FILE) matching the STM32 device.
+ */
 #ifndef _STM32_DEF_BUILD_
 #define _STM32_DEF_BUILD_
 
-#if !defined(CMSIS_STARTUP_FILE) && !defined(CUSTOM_STARTUP_FILE)
+#if !defined(USE_HALV2_DRIVER) && !defined(CMSIS_STARTUP_FILE) && !defined(CUSTOM_STARTUP_FILE)
 {% for cmsis in cmsis_list %}
   {% if loop.first %}
   #if defined({{ cmsis.vline }})
@@ -15,6 +19,6 @@
   #endif
 #else
   #warning "No CMSIS startup file defined, custom one should be used"
-#endif /* !CMSIS_STARTUP_FILE && !CUSTOM_STARTUP_FILE */
+#endif /* !USE_HALV2_DRIVER && !CMSIS_STARTUP_FILE && !CUSTOM_STARTUP_FILE */
 #endif /* _STM32_DEF_BUILD_ */
 

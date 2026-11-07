@@ -8,7 +8,9 @@
   #pragma GCC diagnostic ignored "-Wregister"
 #endif
 
-#ifdef STM32G0xx
+#ifdef STM32C5xx
+  #include "stm32c5xx_ll_lpuart.h"
+#elif STM32G0xx
   #include "stm32g0xx_ll_lpuart.h"
 #elif STM32G4xx
   #include "stm32g4xx_ll_lpuart.h"
@@ -24,14 +26,20 @@
   #include "stm32l5xx_ll_lpuart.h"
 #elif STM32U0xx
   #include "stm32u0xx_ll_lpuart.h"
+#elif STM32U3xx
+  #include "stm32u3xx_ll_lpuart.h"
 #elif STM32U5xx
   #include "stm32u5xx_ll_lpuart.h"
 #elif STM32WBxx
   #include "stm32wbxx_ll_lpuart.h"
+#elif STM32WB0x
+  #include "stm32wb0x_ll_lpuart.h"
 #elif STM32WBAxx
   #include "stm32wbaxx_ll_lpuart.h"
 #elif STM32WLxx
   #include "stm32wlxx_ll_lpuart.h"
+#elif STM32WL3x
+  #include "stm32wl3x_ll_lpuart.h"
 #endif
 #pragma GCC diagnostic pop
 #endif /* _STM32YYXX_LL_LPUART_H_ */

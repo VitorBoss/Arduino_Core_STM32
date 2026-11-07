@@ -110,7 +110,7 @@ const PinName digitalPin[] = {
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
   69, //A0
   70, //A1
   71, //A2
@@ -137,7 +137,6 @@ extern "C" {
 
 /**
   * @brief System Clock Configuration 120MHz
-  * @retval None
   */
 WEAK void SystemClock_Config(void)
 {

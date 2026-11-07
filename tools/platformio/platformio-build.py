@@ -255,6 +255,7 @@ env.Append(
         "HAL_UART_MODULE_ENABLED",
         "USE_HAL_DRIVER",
         "USE_FULL_LL_DRIVER",
+        "EXTENDED_PIN_MODE",
         (
             "VARIANT_H",
             '\\"%s\\"'
@@ -268,6 +269,8 @@ env.Append(
     CPPPATH=[
         join(FRAMEWORK_DIR, "cores", "arduino", "avr"),
         join(FRAMEWORK_DIR, "cores", "arduino", "stm32"),
+        join(FRAMEWORK_DIR, "cores", "arduino", "api", "deprecated"),
+        join(FRAMEWORK_DIR, "cores", "arduino", "api", "deprecated-avr-comp"),
         join(FRAMEWORK_DIR, "libraries", "SrcWrapper", "inc"),
         join(FRAMEWORK_DIR, "libraries", "SrcWrapper", "inc", "LL"),
         join(FRAMEWORK_DIR, "libraries", "USBDevice", "inc"),
@@ -376,13 +379,11 @@ if not board_config.get("build.ldscript", ""):
         print("Warning! Cannot find linker script for the current target!\n")
     env.Append(
         LINKFLAGS=[
-            (
-                "-Wl,--default-script",
-                join(
-                    inc_variant_dir,
-                    board_config.get("build.arduino.ldscript", "ldscript.ld"),
-                ),
-            )
+            "-Wl,--default-script",
+            join(
+                inc_variant_dir,
+                board_config.get("build.arduino.ldscript", "ldscript.ld"),
+            ),
         ]
     )
 

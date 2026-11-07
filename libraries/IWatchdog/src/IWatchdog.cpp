@@ -24,13 +24,13 @@
 // Initialize static variable
 bool IWatchdogClass::_enabled = false;
 
-/**
-  * @brief  Enable IWDG, must be called once
-  * @param  timeout: value in microseconds
-  * @param  window: optional value in microseconds
-  *         Default: IWDG_TIMEOUT_MAX
-  * @retval None
-  */
+IWatchdogClass::IWatchdogClass()
+{
+#if defined(LL_APB0_GRP1_PERIPH_WDG)
+  LL_APB0_GRP1_EnableClock(LL_APB0_GRP1_PERIPH_WDG);
+#endif
+}
+
 void IWatchdogClass::begin(uint32_t timeout, uint32_t window)
 {
   if (!IS_IWDG_TIMEOUT(timeout)) {
@@ -47,6 +47,9 @@ void IWatchdogClass::begin(uint32_t timeout, uint32_t window)
   while (LL_RCC_LSI_IsReady() != 1) {
   }
 #endif
+#if defined(LL_RCC_LSCO_CLKSOURCE_LSI)
+  LL_RCC_LSCO_SetSource(LL_RCC_LSCO_CLKSOURCE_LSI);
+#endif
   // Enable the IWDG by writing 0x0000 CCCC in the IWDG_KR register
   LL_IWDG_Enable(IWDG);
   _enabled = true;
@@ -54,13 +57,6 @@ void IWatchdogClass::begin(uint32_t timeout, uint32_t window)
   set(timeout, window);
 }
 
-/**
-  * @brief  Set the timeout and window values
-  * @param  timeout: value in microseconds
-  * @param  window: optional value in microseconds
-  *         Default: IWDG_TIMEOUT_MAX
-  * @retval None
-  */
 void IWatchdogClass::set(uint32_t timeout, uint32_t window)
 {
   if ((isEnabled()) && (!IS_IWDG_TIMEOUT(timeout))) {
@@ -84,7 +80,17 @@ void IWatchdogClass::set(uint32_t timeout, uint32_t window)
   if (--prescaler > LL_IWDG_PRESCALER_256) {
     return;
   }
-  reload = (uint32_t)(t_sec / div) - 1;
+  {
+    uint32_t ticks = (uint32_t)(t_sec / div);
+    // 'ticks' can floor to 0 right at the documented minimum timeout on
+    // series whose LSI_VALUE does not divide IWDG_TIMEOUT_MIN evenly
+    // (e.g. STM32L0xx/L1xx, LSI_VALUE=37000): guard against the unsigned
+    // underflow that would otherwise wrap 'reload' to 0xFFFFFFFF and,
+    // once masked into the 12-bit RLR register, silently program the
+    // watchdog for close to its longest possible timeout instead of the
+    // shortest one that was actually requested.
+    reload = (ticks > 0) ? (ticks - 1) : 0;
+  }
 
   // Enable register access by writing 0x0000 5555 in the IWDG_KR register
   LL_IWDG_EnableWriteAccess(IWDG);
@@ -101,12 +107,14 @@ void IWatchdogClass::set(uint32_t timeout, uint32_t window)
       // Reset window value
       reload = IWDG_WINR_WIN;
     } else {
-      reload = (uint32_t)(((float)window / 1000000 * LSI_VALUE) / div) - 1;
+      // Same underflow risk as the 'timeout' -> reload conversion above.
+      uint32_t window_ticks = (uint32_t)(((float)window / 1000000 * LSI_VALUE) / div);
+      reload = (window_ticks > 0) ? (window_ticks - 1) : 0;
     }
     LL_IWDG_SetWindow(IWDG, reload);
   }
 #else
-  UNUSED(window);
+  (void)window;
 #endif
 
   // Wait for the registers to be updated (IWDG_SR = 0x0000 0000)
@@ -117,12 +125,6 @@ void IWatchdogClass::set(uint32_t timeout, uint32_t window)
   LL_IWDG_ReloadCounter(IWDG);
 }
 
-/**
-  * @brief  Get the current timeout and window values
-  * @param  timeout: pointer to the get the value in microseconds
-  * @param  window: optional pointer to the get the value in microseconds
-  * @retval None
-  */
 void IWatchdogClass::get(uint32_t *timeout, uint32_t *window)
 {
   if (timeout != NULL) {
@@ -145,31 +147,27 @@ void IWatchdogClass::get(uint32_t *timeout, uint32_t *window)
       *window = (uint32_t)((4 << prescaler) * (win + 1) * base);
     }
 #else
-    UNUSED(window);
+    (void)window;
 #endif
   }
 }
 
-/**
-  * @brief  Reload the counter value with IWDG_RLR (IWDG_KR = 0x0000 AAAA)
-  * @retval None
-  */
 void IWatchdogClass::reload(void)
 {
   if (isEnabled()) {
+    // Reload the counter with IWDG_RLR (IWDG_KR = 0x0000 AAAA)
     LL_IWDG_ReloadCounter(IWDG);
   }
 }
 
-/**
-  * @brief  Check if the system has resumed from IWDG reset
-  * @param  clear: if true clear IWDG reset flag. Default false
-  * @retval return reset flag status
-  */
 bool IWatchdogClass::isReset(bool clear)
 {
-#ifdef IWDG1
+#if defined(IWDG1)
   bool status = LL_RCC_IsActiveFlag_IWDG1RST();
+#elif defined(STM32WB0x)
+  bool status = LL_RCC_IsActiveFlag_WDGRST();
+#elif defined(STM32WL3x)
+  bool status = ((RAM_VR.ResetReason & RCC_FLAG_WDGRST) == RCC_FLAG_WDGRST);
 #else
   bool status = LL_RCC_IsActiveFlag_IWDGRST();
 #endif
@@ -179,13 +177,13 @@ bool IWatchdogClass::isReset(bool clear)
   return status;
 }
 
-/**
-  * @brief  Clear IWDG reset flag
-  * @retval None
-  */
 void IWatchdogClass::clearReset(void)
 {
+#if defined(USE_HALV2_DRIVER)
+  LL_RCC_ForceClearResetFlags();
+#else
   LL_RCC_ClearResetFlags();
+#endif
 }
 
 // Preinstantiate Object

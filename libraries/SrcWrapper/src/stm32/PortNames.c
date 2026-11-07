@@ -29,7 +29,7 @@
  */
 #include "PortNames.h"
 
-GPIO_TypeDef *GPIOPort[MAX_NB_PORT] = {
+GPIO_TypeDef *GPIOPort_list[MAX_NB_PORT] = {
   (GPIO_TypeDef *)GPIOA_BASE,
   (GPIO_TypeDef *)GPIOB_BASE
 #if defined GPIOC_BASE
@@ -64,41 +64,64 @@ GPIO_TypeDef *GPIOPort[MAX_NB_PORT] = {
 #endif
 };
 
-/* Enable GPIO clock and return GPIO base address */
 GPIO_TypeDef *set_GPIO_Port_Clock(uint32_t port_idx)
 {
   GPIO_TypeDef *gpioPort = 0;
   switch (port_idx) {
     case PortA:
       gpioPort = (GPIO_TypeDef *)GPIOA_BASE;
+#if defined(__HAL_RCC_GPIOA_CLK_ENABLE)
       __HAL_RCC_GPIOA_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOA_EnableClock();
+#endif
       break;
     case PortB:
       gpioPort = (GPIO_TypeDef *)GPIOB_BASE;
+#if defined(__HAL_RCC_GPIOB_CLK_ENABLE)
       __HAL_RCC_GPIOB_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOB_EnableClock();
+#endif
       break;
 #if defined GPIOC_BASE
     case PortC:
       gpioPort = (GPIO_TypeDef *)GPIOC_BASE;
+#if defined(__HAL_RCC_GPIOC_CLK_ENABLE)
       __HAL_RCC_GPIOC_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOC_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOD_BASE
     case PortD:
       gpioPort = (GPIO_TypeDef *)GPIOD_BASE;
+#if defined(__HAL_RCC_GPIOD_CLK_ENABLE)
       __HAL_RCC_GPIOD_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOD_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOE_BASE
     case PortE:
       gpioPort = (GPIO_TypeDef *)GPIOE_BASE;
+#if defined(__HAL_RCC_GPIOE_CLK_ENABLE)
       __HAL_RCC_GPIOE_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOE_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOF_BASE
     case PortF:
       gpioPort = (GPIO_TypeDef *)GPIOF_BASE;
+#if defined(__HAL_RCC_GPIOF_CLK_ENABLE)
       __HAL_RCC_GPIOF_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOF_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOG_BASE
@@ -108,37 +131,61 @@ GPIO_TypeDef *set_GPIO_Port_Clock(uint32_t port_idx)
       HAL_PWREx_EnableVddIO2();
 #endif
       gpioPort = (GPIO_TypeDef *)GPIOG_BASE;
+#if defined(__HAL_RCC_GPIOG_CLK_ENABLE)
       __HAL_RCC_GPIOG_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOG_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOH_BASE
     case PortH:
       gpioPort = (GPIO_TypeDef *)GPIOH_BASE;
+#if defined(__HAL_RCC_GPIOH_CLK_ENABLE)
       __HAL_RCC_GPIOH_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOH_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOI_BASE
     case PortI:
       gpioPort = (GPIO_TypeDef *)GPIOI_BASE;
+#if defined(__HAL_RCC_GPIOI_CLK_ENABLE)
       __HAL_RCC_GPIOI_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOI_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOJ_BASE
     case PortJ:
       gpioPort = (GPIO_TypeDef *)GPIOJ_BASE;
+#if defined(__HAL_RCC_GPIOJ_CLK_ENABLE)
       __HAL_RCC_GPIOJ_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOJ_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOK_BASE
     case PortK:
       gpioPort = (GPIO_TypeDef *)GPIOK_BASE;
+#if defined(__HAL_RCC_GPIOK_CLK_ENABLE)
       __HAL_RCC_GPIOK_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOK_EnableClock();
+#endif
       break;
 #endif
 #if defined GPIOZ_BASE
     case PortZ:
       gpioPort = (GPIO_TypeDef *)GPIOZ_BASE;
+#if defined(__HAL_RCC_GPIOZ_CLK_ENABLE)
       __HAL_RCC_GPIOZ_CLK_ENABLE();
+#else
+      HAL_RCC_GPIOZ_EnableClock();
+#endif
       break;
 #endif
     default:

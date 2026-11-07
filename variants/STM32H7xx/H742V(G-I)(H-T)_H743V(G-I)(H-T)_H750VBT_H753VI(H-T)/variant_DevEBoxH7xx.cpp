@@ -101,7 +101,7 @@ const PinName digitalPin[] = {
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
   54, // A0,  PB1
   55, // A1,  PB0
   56, // A2,  PC5
@@ -121,9 +121,7 @@ const uint32_t analogInputPin[] = {
 };
 
 /**
-  * @brief  System Clock Configuration
-  * @param  None
-  * @retval None
+  * @brief System Clock Configuration
   */
 WEAK void SystemClock_Config(void)
 {
@@ -259,10 +257,6 @@ WEAK void SystemClock_Config(void)
   }
 }
 
-/*
- * Power saving mode, mcu runs significantly cooler
- * Sysclock 240 Mhz, bus clocks 120 Mhz
- */
 void SysClkHalfSpeed()
 {
   RCC_ClkInitTypeDef RCC_ClkInitStruct = { };
@@ -284,10 +278,6 @@ void SysClkHalfSpeed()
   }
 }
 
-/*
- * Full speed - sysclk from PLL1 P - 480 Mhz
- * Sysclock 480 Mhz, bus clocks 240 Mhz
- */
 void SysClkFullSpeed()
 {
   RCC_ClkInitTypeDef RCC_ClkInitStruct = { };

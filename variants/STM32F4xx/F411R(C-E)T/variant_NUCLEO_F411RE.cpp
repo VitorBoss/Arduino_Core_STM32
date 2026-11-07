@@ -76,7 +76,7 @@ const PinName digitalPin[] = {
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
   46, //A0
   47, //A1
   48, //A2
@@ -104,8 +104,6 @@ extern "C" {
   * @brief  System Clock Configuration
   *         SYSCLK = 100000000 Hz for ARDUINO_NUCLEO_F411RE
   *         SYSCLK = 84000000 Hz for ARDUINO_NUCLEO_F401RE
-  * @param  None
-  * @retval None
   */
 WEAK void SystemClock_Config(void)
 {

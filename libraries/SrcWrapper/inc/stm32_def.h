@@ -5,16 +5,16 @@
 /**
  * @brief STM32 core version number
  */
-#define STM32_CORE_VERSION_MAJOR    (0x02U) /*!< [31:24] major version */
-#define STM32_CORE_VERSION_MINOR    (0x10U) /*!< [23:16] minor version */
-#define STM32_CORE_VERSION_PATCH    (0x00U) /*!< [15:8]  patch version */
+#define STM32_CORE_VERSION_MAJOR    (0x03U) /*!< [31:24] major version */
+#define STM32_CORE_VERSION_MINOR    (0x00U) /*!< [23:16] minor version */
+#define STM32_CORE_VERSION_PATCH    (0x01U) /*!< [15:8]  patch version */
 /*
  * Extra label for development:
  * 0: official release
  * [1-9]: release candidate
  * F[0-9]: development
  */
-#define STM32_CORE_VERSION_EXTRA    (0xF0U) /*!< [7:0]  extra version */
+#define STM32_CORE_VERSION_EXTRA    (0x0FU) /*!< [7:0]  extra version */
 #define STM32_CORE_VERSION          ((STM32_CORE_VERSION_MAJOR << 24U)\
                                         |(STM32_CORE_VERSION_MINOR << 16U)\
                                         |(STM32_CORE_VERSION_PATCH << 8U )\
@@ -22,6 +22,8 @@
 
 #if defined(STM32C0xx)
   #include "stm32c0xx.h"
+#elif defined(STM32C5xx)
+  #include "stm32c5xx.h"
 #elif defined(STM32F0xx)
   #include "stm32f0xx.h"
 #elif defined(STM32F1xx)
@@ -54,19 +56,40 @@
   #include "stm32mp1xx.h"
 #elif defined(STM32U0xx)
   #include "stm32u0xx.h"
+#elif defined(STM32U3xx)
+  #include "stm32u3xx.h"
 #elif defined(STM32U5xx)
   #include "stm32u5xx.h"
+#elif defined(STM32WB0x)
+  #include "stm32wb0x.h"
 #elif defined(STM32WBxx)
   #include "stm32wbxx.h"
 #elif defined(STM32WBAxx)
   #include "stm32wbaxx.h"
+#elif defined(STM32WL3x)
+  #include "stm32wl3x.h"
 #elif defined(STM32WLxx)
   #include "stm32wlxx.h"
 #else
   #error "STM32YYxx chip series is not defined in boards.txt."
 #endif
 
+#if defined(USE_HALV2_DRIVER)
+  #include "stm32_hal.h"
+
+  #define _Min_Heap_Size HEAP_SIZE
+  #define _Min_Stack_Size STACK_SIZE
+  #define _end end
+
+  /* Define to avoid any backward compatibility issues */
+  /* but prefer avoid using it, use (void)variable instead */
+  #ifndef UNUSED
+    #define UNUSED STM32_UNUSED
+  #endif /* UNUSED */
+#endif /* USE_HALV2_DRIVER */
+
 #ifndef F_CPU
+  /** @brief CPU frequency in Hz */
   #define F_CPU SystemCoreClock
 #endif
 
@@ -91,7 +114,6 @@
 #endif
 
 #if defined(STM32U0xx)
-#define RCC_CR_HSIDY_Pos RCC_CR_HSIRDY_Pos
 #include "stm32yyxx_ll_rtc.h"
 #if !defined(LL_RTC_BINARY_NONE)
   #define LL_RTC_BINARY_NONE RTC_BINARY_NONE
@@ -128,69 +150,79 @@
 #endif
 
 /**
-  * @brief  Get Binary mode (Sub Second Register)
-  * @rmtoll RTC_ICSR           BIN           LL_RTC_GetBinaryMode
-  * @param  RTCx RTC Instance
-  * @retval This parameter can be one of the following values:
-  *         @arg @ref LL_RTC_BINARY_NONE
-  *         @arg @ref LL_RTC_BINARY_ONLY
-  *         @arg @ref LL_RTC_BINARY_MIX
-  * @retval None
-  */
+ * @brief Get Binary mode (Sub Second Register)
+ * @rmtoll RTC_ICSR           BIN           LL_RTC_GetBinaryMode
+ * @param RTCx RTC Instance
+ * @return Binary mode, one of the following values:
+ *         @li @ref LL_RTC_BINARY_NONE
+ *         @li @ref LL_RTC_BINARY_ONLY
+ *         @li @ref LL_RTC_BINARY_MIX
+ */
 __STATIC_INLINE uint32_t LL_RTC_GetBinaryMode(const RTC_TypeDef *RTCx)
 {
   return (uint32_t)(READ_BIT(RTCx->ICSR, RTC_ICSR_BIN));
 }
 
 /**
-  * @brief  Set Binary mode (Sub Second Register)
-  * @note   Bit is write-protected. @ref LL_RTC_DisableWriteProtection function should be called before.
-  * @note   It can be written in initialization mode only (@ref LL_RTC_EnableInitMode function).
-  * @rmtoll RTC_ICSR           BIN           LL_RTC_SetBinaryMode
-  * @param  RTCx RTC Instance
-  * @param  BinaryMode can be one of the following values:
-  *         @arg @ref LL_RTC_BINARY_NONE
-  *         @arg @ref LL_RTC_BINARY_ONLY
-  *         @arg @ref LL_RTC_BINARY_MIX
-  * @retval None
-  */
+ * @brief Set Binary mode (Sub Second Register)
+ * @note Bit is write-protected. @ref LL_RTC_DisableWriteProtection function
+ *       should be called before.
+ * @note It can be written in initialization mode only
+ *       (@ref LL_RTC_EnableInitMode function).
+ * @rmtoll RTC_ICSR           BIN           LL_RTC_SetBinaryMode
+ * @param RTCx RTC Instance
+ * @param BinaryMode can be one of the following values:
+ *         @li @ref LL_RTC_BINARY_NONE
+ *         @li @ref LL_RTC_BINARY_ONLY
+ *         @li @ref LL_RTC_BINARY_MIX
+ */
 __STATIC_INLINE void LL_RTC_SetBinaryMode(RTC_TypeDef *RTCx, uint32_t BinaryMode)
 {
   MODIFY_REG(RTCx->ICSR, RTC_ICSR_BIN, BinaryMode);
 }
 
 /**
-  * @brief  Set Binary Mix mode BCDU
-  * @note   Bit is write-protected. @ref LL_RTC_DisableWriteProtection function should be called before.
-  * @note   It can be written in initialization mode only (@ref LL_RTC_EnableInitMode function).
-  * @rmtoll RTC_ICSR           BCDU          LL_RTC_SetBinMixBCDU
-  * @param  RTCx RTC Instance
-  * @param  BinMixBcdU can be one of the following values:
-  *         @arg @ref LL_RTC_BINARY_MIX_BCDU_0
-  *         @arg @ref LL_RTC_BINARY_MIX_BCDU_1
-  *         @arg @ref LL_RTC_BINARY_MIX_BCDU_2
-  *         @arg @ref LL_RTC_BINARY_MIX_BCDU_3
-  *         @arg @ref LL_RTC_BINARY_MIX_BCDU_4
-  *         @arg @ref LL_RTC_BINARY_MIX_BCDU_5
-  *         @arg @ref LL_RTC_BINARY_MIX_BCDU_6
-  *         @arg @ref LL_RTC_BINARY_MIX_BCDU_7
-  * @retval None
-  */
+ * @brief Set Binary Mix mode BCDU
+ * @note Bit is write-protected. @ref LL_RTC_DisableWriteProtection function
+ *       should be called before.
+ * @note It can be written in initialization mode only
+ *       (@ref LL_RTC_EnableInitMode function).
+ * @rmtoll RTC_ICSR           BCDU          LL_RTC_SetBinMixBCDU
+ * @param RTCx RTC Instance
+ * @param BinMixBcdU can be one of the following values:
+ *         @li @ref LL_RTC_BINARY_MIX_BCDU_0
+ *         @li @ref LL_RTC_BINARY_MIX_BCDU_1
+ *         @li @ref LL_RTC_BINARY_MIX_BCDU_2
+ *         @li @ref LL_RTC_BINARY_MIX_BCDU_3
+ *         @li @ref LL_RTC_BINARY_MIX_BCDU_4
+ *         @li @ref LL_RTC_BINARY_MIX_BCDU_5
+ *         @li @ref LL_RTC_BINARY_MIX_BCDU_6
+ *         @li @ref LL_RTC_BINARY_MIX_BCDU_7
+ */
 __STATIC_INLINE void LL_RTC_SetBinMixBCDU(RTC_TypeDef *RTCx, uint32_t BinMixBcdU)
 {
   MODIFY_REG(RTCx->ICSR, RTC_ICSR_BCDU, BinMixBcdU);
 }
 #endif // STM32U0xx
 
-/* STM32G0xx, STM32U0xx and some STM32U5xx defined USB_DRD_FS */
+/* Some STM32 series define USB_DRD_FS instead of the legacy USB instance. */
 #if !defined(USB) && defined(USB_DRD_FS)
   #define USB USB_DRD_FS
   #define PinMap_USB PinMap_USB_DRD_FS
-  #if defined(STM32H5xx) || defined(STM32U0xx) || defined(STM32U5xx)
+  #if defined(STM32C5xx)
+    #define USB_BASE USB_DRD_FS_BASE
+  #elif defined(STM32H5xx) || defined(STM32U0xx) ||\
+    defined(STM32U3xx) || defined(STM32U5xx)
     #define USB_BASE USB_DRD_BASE
     #if !defined(__HAL_RCC_USB_CLK_ENABLE)
-      #define __HAL_RCC_USB_CLK_ENABLE __HAL_RCC_USB_FS_CLK_ENABLE
-      #define __HAL_RCC_USB_CLK_DISABLE __HAL_RCC_USB_FS_CLK_DISABLE
+      #if defined(__HAL_RCC_USB_FS_CLK_ENABLE)
+        #define __HAL_RCC_USB_CLK_ENABLE __HAL_RCC_USB_FS_CLK_ENABLE
+        #define __HAL_RCC_USB_CLK_DISABLE __HAL_RCC_USB_FS_CLK_DISABLE
+      #endif
+      #if defined(__HAL_RCC_USB1_CLK_ENABLE)
+        #define __HAL_RCC_USB_CLK_ENABLE __HAL_RCC_USB1_CLK_ENABLE
+        #define __HAL_RCC_USB_CLK_DISABLE __HAL_RCC_USB1_CLK_DISABLE
+      #endif
     #endif
   #endif
 #endif
@@ -213,6 +245,7 @@ __STATIC_INLINE void LL_RTC_SetBinMixBCDU(RTC_TypeDef *RTCx, uint32_t BinMixBcdU
  * Libc porting layers
  */
 #if defined (  __GNUC__  ) /* GCC CS3 */
+  /** @brief Mark a function as weak, i.e. overridable by the user */
   #define WEAK __attribute__ ((weak))
 #endif
 
@@ -221,10 +254,14 @@ extern "C" {
 #endif // __cplusplus
 
 // weaked functions declaration
+/**
+ * @brief Configure the system clock. Overridable by the board variant.
+ */
 void SystemClock_Config(void);
 
 #if defined(NDEBUG)
 #if !defined(_Error_Handler)
+/** @brief In release builds (NDEBUG): loop forever, no message is reported */
 #define _Error_Handler(str, value) \
   while (1) {\
     (void)str;\
@@ -232,13 +269,23 @@ void SystemClock_Config(void);
   }
 #endif
 #if !defined(Error_Handler)
+/** @brief In release builds (NDEBUG): loop forever */
 #define Error_Handler() \
   while (1) {\
   }
 #endif
 #else
-void _Error_Handler(const char *, int);
+/**
+ * @brief Function executed in case of error occurrence: report the error
+ *        with core_debug() and halt execution.
+ * @param msg Error message (typically __FILE__).
+ * @param val Error value (typically __LINE__).
+ * @note Weak function: user can add his own implementation to report the HAL
+ *       error return state.
+ */
+void _Error_Handler(const char *msg, int val);
 
+/** @brief Report the current source file and line with _Error_Handler() */
 #define Error_Handler() _Error_Handler(__FILE__, __LINE__)
 #endif
 

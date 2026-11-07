@@ -16,25 +16,38 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+/**
+ * @file wiring_pulse.cpp
+ * @brief Pulse width measurement: pulseIn() and pulseInLong().
+ */
+
 #include "Arduino.h"
 
-/* Measures the length (in microseconds) of a pulse on the pin; state is HIGH
- * or LOW, the type of pulse to measure.  Works on pulses from 2-3 microseconds
- * to 3 minutes in length, but must be called at least a few dozen microseconds
- * before the start of the pulse.
+/**
+ * @brief Measures the length (in microseconds) of a pulse on the pin.
  *
- * ATTENTION:
- * This function relies on micros() so cannot be used in noInterrupt() context
+ * Works on pulses from 2-3 microseconds to 3 minutes in length, but must be
+ * called at least a few dozen microseconds before the start of the pulse.
+ *
+ * @note This function relies on micros() so cannot be used in noInterrupt() context.
+ *
+ * @param pin Pin number, Dx or x.
+ * @param state HIGH or LOW, the type of pulse to measure.
+ * @param timeout Maximum time to wait for the whole measure (end of any
+ * previous pulse, start and end of the pulse), in microseconds.
+ * Defaults to 1 second when omitted in C++.
+ * @return Length of the pulse in microseconds, or 0 if the pulse was not
+ * completed before the timeout.
  */
-uint32_t pulseIn(uint32_t pin, uint32_t state, uint32_t timeout)
+unsigned long pulseIn(pin_size_t pin, uint8_t state, unsigned long timeout)
 {
   // Cache the port and bit of the pin in order to speed up the
   // pulse width measuring loop and achieve finer resolution.
   // Calling digitalRead() instead yields much coarser resolution.
-  uint32_t bit = digitalPinToBitMask(pin);
-  __IO uint32_t *portIn = portInputRegister(digitalPinToPort(pin));
-  uint32_t stateMask = (state ? bit : 0);
-  uint32_t startMicros = micros();
+  pin_size_t bit = digitalPinToBitMask(pin);
+  __IM uint32_t  *portIn = portInputRegister(digitalPinToPort(pin));
+  uint8_t stateMask = (state ? bit : 0);
+  unsigned long startMicros = micros();
 
   // wait for any previous pulse to end
   while ((*portIn & bit) == stateMask) {
@@ -60,15 +73,23 @@ uint32_t pulseIn(uint32_t pin, uint32_t state, uint32_t timeout)
   return (micros() - start);
 }
 
-/* Measures the length (in microseconds) of a pulse on the pin; state is HIGH
- * or LOW, the type of pulse to measure.  Works on pulses from 2-3 microseconds
- * to 3 minutes in length, but must be called at least a few dozen microseconds
- * before the start of the pulse.
+/**
+ * @brief Measures the length (in microseconds) of a pulse on the pin.
  *
- * ATTENTION:
- * This function relies on micros() so cannot be used in noInterrupt() context
+ * Same as pulseIn(); provided for compatibility with the AVR core.
+ *
+ * @note This function relies on micros() so cannot be used in noInterrupt() context.
+ *
+ * @param pin Pin number, Dx or x.
+ * @param state HIGH or LOW, the type of pulse to measure.
+ * @param timeout Maximum time to wait for the whole measure (end of any
+ * previous pulse, start and end of the pulse), in microseconds.
+ * Defaults to 1 second when omitted in C++.
+ * @return Length of the pulse in microseconds, or 0 if the pulse was not
+ * completed before the timeout.
  */
-uint32_t pulseInLong(uint32_t pin, uint32_t state, uint32_t timeout)
+unsigned long pulseInLong(pin_size_t pin, uint8_t state, unsigned long timeout)
 {
   return pulseIn(pin, state, timeout);
 }
+

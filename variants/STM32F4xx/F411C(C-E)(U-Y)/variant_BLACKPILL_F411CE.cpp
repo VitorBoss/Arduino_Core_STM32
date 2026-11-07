@@ -10,7 +10,7 @@
  *
  *******************************************************************************
  */
-#if defined(ARDUINO_BLACKPILL_F411CE)
+#if defined(ARDUINO_BLACKPILL_F411CE_8M) || defined(ARDUINO_BLACKPILL_F411CE)
 #include "pins_arduino.h"
 
 // Digital PinName array
@@ -57,7 +57,7 @@ const PinName digitalPin[] = {
 };
 
 // Analog (Ax) pin number array
-const uint32_t analogInputPin[] = {
+const pin_size_t analogInputPin[] = {
   0,  // A0,  PA0
   1,  // A1,  PA1
   2,  // A2,  PA2
@@ -76,6 +76,9 @@ const uint32_t analogInputPin[] = {
 extern "C" {
 #endif
 
+/**
+  * @brief System Clock Configuration
+  */
 WEAK void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {};
@@ -92,8 +95,13 @@ WEAK void SystemClock_Config(void)
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+#if defined(ARDUINO_BLACKPILL_F411CE_8M)
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 100;
+#else
   RCC_OscInitStruct.PLL.PLLM = 25;
   RCC_OscInitStruct.PLL.PLLN = 192;
+#endif
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
@@ -117,4 +125,4 @@ WEAK void SystemClock_Config(void)
 }
 #endif
 
-#endif /* ARDUINO_BLACKPILL_F411CE */
+#endif /* ARDUINO_BLACKPILL_F411CE_8M || ARDUINO_BLACKPILL_F411CE) */
